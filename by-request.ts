@@ -24,7 +24,7 @@ export async function request(urlOrOptions: string | RequestOptions, optionsOrEn
     options = urlOrOptions as RequestOptions;
 
   if (!options.headers)
-    options.headers = {'accept-encoding': 'gzip, deflate, br'};
+    options.headers = { 'accept-encoding': 'gzip, deflate, br' };
   else if (!options.headers['accept-encoding'])
     options.headers['accept-encoding'] = 'gzip, deflate, br';
 
