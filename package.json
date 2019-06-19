@@ -1,0 +1,45 @@
+{
+  "name": "by-request",
+  "version": "1.0.0-alpha.1",
+  "description": "Simple Node http client for use with promises, async/await.",
+  "main": "dist/index.js",
+  "typings": "dist/index",
+  "scripts": {
+    "build": "tsc",
+    "test": "tsc && jasmine-node dist",
+    "prepublishOnly": "tsc",
+    "watch:build": "tsc --watch"
+  },
+  "author": "Kerry Shetline <kerry@shetline.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kshetline/by-request.git"
+  },
+  "keywords": [
+    "http",
+    "https",
+    "client",
+    "node",
+    "request",
+    "wget",
+    "curl",
+    "bom",
+    "character",
+    "encoding"
+  ],
+  "dependencies": {
+    "follow-redirects": "^1.7.0",
+    "iconv-lite": "^0.4.24",
+    "lodash": "^4.17.11"
+  },
+  "devDependencies": {
+    "@types/follow-redirects": "^1.5.0",
+    "@types/jasmine": "^2.8.16",
+    "@types/lodash": "^4.14.134",
+    "jasmine-node": "^3.0.0",
+    "ts-node-dev": "^1.0.0-pre.39",
+    "tslint": "^5.17.0",
+    "typescript": "^3.5.1"
+  }
+}
