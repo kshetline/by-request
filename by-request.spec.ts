@@ -52,13 +52,17 @@ app.get('/test6', (req: Request, res: Response) => {
   res.send(iconv.encode('Côte d\'Ivoire', 'utf-8', { addBOM: true }));
 });
 
-app.get('/test7', (req: Request, res: Response) => {
+app.get('/test7/:id', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+
   res.setHeader('Content-Type', 'text/html');
-  res.send(iconv.encode(`
-<!-- Ignore this charset="utf-8" -->
-<meta charset="macroman">
-<div>A Møøse once bit my sister... No realli!</div>
-`, 'macroman'));
+  res.send(iconv.encode(
+    (id === 1 ? '<?xml version="1.0" encoding="macroman"?>' : '') + '\n' +
+    '<!-- Ignore this <meta charset="utf-8"> -->\n' +
+    (id === 2 ? '<meta charset="macroman">' : '') + '\n' +
+    (id === 3 ? '<meta http-equiv="Content-Type" content="text/html; charset=macroman">' : '') + '\n' +
+    (id === 4 ? '@charset "macroman";' : '') + '\n' +
+    '<div>A Møøse once bit my sister... No realli!</div>', 'macroman'));
 });
 
 app.listen(port, () => {
@@ -102,9 +106,19 @@ describe('by-request', () => {
     done();
   });
 
-  it('should read character encoding embedded near begging of HTML content, example "macroman"', async done => {
-    const content = await request(`http://localhost:${port}/test7/`);
+  it('should read character encoding embedded near beginning of HTML/XML/CSS content, example "macroman"', async done => {
+    let content = await request(`http://localhost:${port}/test7/1`);
     expect(content).toContain('A Møøse once bit my sister... No realli!');
+
+    content = await request(`http://localhost:${port}/test7/2`);
+    expect(content).toContain('A Møøse once bit my sister... No realli!');
+
+    content = await request(`http://localhost:${port}/test7/3`);
+    expect(content).toContain('A Møøse once bit my sister... No realli!');
+
+    content = await request(`http://localhost:${port}/test7/4`);
+    expect(content).toContain('A Møøse once bit my sister... No realli!');
+
     done();
   });
 });

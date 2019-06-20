@@ -1,8 +1,29 @@
+/*
+  Copyright © 2019 Kerry Shetline, kerry@shetline.com
+
+  MIT license: https://opensource.org/licenses/MIT
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+  documentation files (the "Software"), to deal in the Software without restriction, including without limitation the
+  rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit
+  persons to whom the Software is furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all copies or substantial portions of the
+  Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+  WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+  COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+  OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+*/
 import { RequestOptions } from 'http';
 import zlib from 'zlib';
 import { http, https } from 'follow-redirects';
 import { parse as parseUrl } from 'url';
 import iconv from 'iconv-lite';
+import { UNSUPPORTED_MEDIA_TYPE } from 'http-status-codes';
+
+const MAX_EXAMINE = 2048;
 
 export async function request(urlOrOptions: string | RequestOptions, encoding?: string): Promise<string | Buffer>;
 export async function request(url: string, options: RequestOptions, encoding?: string): Promise<string | Buffer>;
@@ -57,7 +78,7 @@ export async function request(urlOrOptions: string | RequestOptions, optionsOrEn
           res.pipe(source);
         }
         else if (contentEncoding && contentEncoding !== 'identity') {
-          reject(415); // Unsupported Media Type
+          reject(UNSUPPORTED_MEDIA_TYPE);
           return;
         }
 
@@ -73,7 +94,7 @@ export async function request(urlOrOptions: string | RequestOptions, optionsOrEn
 
           if (!/^(ascii|utf8|utf16le|ucs2|base64|binary|hex)$/.test(charset)) {
             if (!iconv.encodingExists(charset)) {
-              reject(415); // Unsupported Media Type
+              reject(UNSUPPORTED_MEDIA_TYPE);
               return;
             }
 
@@ -91,7 +112,7 @@ export async function request(urlOrOptions: string | RequestOptions, optionsOrEn
               const [bomLength, bomCharset] = bom.split(':');
 
               if (!iconv.encodingExists(bomCharset)) {
-                reject(415); // Unsupported Media Type
+                reject(UNSUPPORTED_MEDIA_TYPE);
                 return;
               }
 
@@ -104,17 +125,17 @@ export async function request(urlOrOptions: string | RequestOptions, optionsOrEn
           }
 
           if (autodetect && content.length === 0) {
-            const sample = data.toString('ascii').toLowerCase().replace('\n', ' ').trim();
-            const embeddedEncoding = lookForEmbeddedEncoding(sample);
+            const embeddedEncoding = lookForEmbeddedEncoding(data);
 
             if (embeddedEncoding) {
               if (!iconv.encodingExists(embeddedEncoding)) {
-                reject(415); // Unsupported Media Type
+                reject(UNSUPPORTED_MEDIA_TYPE);
                 return;
               }
 
               charset = embeddedEncoding;
               usingIconv = true;
+              autodetect = false;
             }
           }
 
@@ -159,9 +180,9 @@ function checkBOM(buffer: Buffer): string {
 
   const bom = Array.from(buffer.slice(0, Math.min(buffer.length, 4)));
 
-  if (bom[0] === 0x00 && bom[1] === 0x00 && bom[2] === 0xFE && bom[3] == 0xFF)
+  if (bom[0] === 0x00 && bom[1] === 0x00 && bom[2] === 0xFE && bom[3] === 0xFF)
     return '4:utf-32be';
-  else if (bom[0] === 0xFF && bom[1] === 0xFE && bom[2] === 0x00 && bom[3] == 0x00)
+  else if (bom[0] === 0xFF && bom[1] === 0xFE && bom[2] === 0x00 && bom[3] === 0x00)
     return '4:utf-32le';
   else if (bom[0] === 0xFE && bom[1] === 0xFF)
     return '2:utf-16be';
@@ -173,17 +194,45 @@ function checkBOM(buffer: Buffer): string {
   return null;
 }
 
-function lookForEmbeddedEncoding(text: string): string {
+function lookForEmbeddedEncoding(buffer: Buffer): string {
+  // First make sure this isn't likely to be a 16- or 32-bit encoding.
+  const start = Array.from(buffer.slice(0, Math.min(buffer.length, 4)));
+
+  if (start[0] === 0 && start[1] === 0 && (start[2] !== 0 || start[3] !== 0)) {
+    return 'utf-32be';
+  }
+  else if ((start[0] !== 0 || start[1] !== 0) && start[2] === 0 && start[3] === 0) {
+    return 'utf-32le';
+  }
+  else if (start[0] === 0 && start[1] !== 0) {
+    return 'utf-16be';
+  }
+  else if (start[0] !== 0 && start[1] === 0) {
+    return 'utf-16le';
+  }
+
+  let text = buffer.slice(0, Math.min(buffer.length, MAX_EXAMINE)).toString('ascii').toLowerCase().replace('\n', ' ').trim();
   // Strip line breaks and comments first
-  text = text.replace(/\n+/g, ' ').replace(/<!--.*?-->/g, '').trim();
+  let tagText = text.replace(/\n+/g, ' ').replace(/<!--.*?-->/g, '').trim();
   // Break into tags
-  const tags = text.replace(/[^<]*(<[^>]*>)[^<]*/g, '$1\n').split('\n').filter(tag => !/^<\//.test(tag));
+  const tags = tagText.replace(/[^<]*(<[^>]*>)[^<]*/g, '$1\n').split('\n').filter(tag => !/^<\//.test(tag));
   let $: string[];
 
   for (const tag of tags) {
-    if (/^<meta\b/.test(tag) && ($ = /\bcharset\s*=\s*['"]?\s*([\w\-]+)\b/.exec(tag)))
+    if (/^<\?xml\b/.test(tag) && ($ = /\bencoding\s*=\s*['"]\s*([\w\-]+)\b/.exec(tag)))
       return $[1];
+    else if (/^<meta\b/.test(tag)) {
+      if (($ = /\bcharset\s*=\s*['"]?\s*([\w\-]+)\b/.exec(tag)))
+        return $[1];
+      else if (/\bhttp-equiv\s*=\s*['"]?\s*content-type\b/.test(tag) &&
+        ($ = /\bcontent\s*=\s*['"]?.*;\s*charset\s*=\s*([\w\-]+)\b/.exec(tag)))
+        return $[1];
+    }
   }
+
+  // CSS charset must come right at the beginning of a file, so no need to worry about comments confusing the issue.
+  if (($ = /@charset\s+['"]\s*([\w\-]+)\b/.exec(text)))
+    return $[1];
 
   return null;
 }
