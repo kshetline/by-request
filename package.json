@@ -6,7 +6,7 @@
   "typings": "dist/index",
   "scripts": {
     "build": "tsc",
-    "test": "tsc && jasmine-node dist",
+    "test": "nodemon --ext ts --exec 'tsc && jasmine-node dist --autotest'",
     "prepublishOnly": "tsc"
   },
   "author": "Kerry Shetline <kerry@shetline.com>",
@@ -39,6 +39,7 @@
     "@types/lodash": "^4.14.134",
     "express": "^4.17.1",
     "jasmine-node": "^3.0.0",
+    "nodemon": "^1.19.1",
     "ts-node-dev": "^1.0.0-pre.39",
     "tslint": "^5.17.0",
     "typescript": "^3.5.1"

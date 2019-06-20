@@ -84,11 +84,38 @@ export async function request(urlOrOptions: string | RequestOptions, optionsOrEn
         let content = Buffer.alloc(0);
 
         source.on('data', (data: Buffer) => {
-          if (content.length === 0)
-            checkBOM(data);
+          if (content.length === 0) {
+            const bom = checkBOM(data);
+
+            if (bom) {
+              const [bomLength, bomCharset] = bom.split(':');
+
+              if (!iconv.encodingExists(bomCharset)) {
+                reject(415); // Unsupported Media Type
+                return;
+              }
+
+              charset = bomCharset;
+              usingIconv = true;
+              autodetect = false;
+              // Remove BOM
+              data = data.slice(Number(bomLength));
+            }
+          }
+
           if (autodetect && content.length === 0) {
             const sample = data.toString('ascii').toLowerCase().replace('\n', ' ').trim();
-            console.log(sample);
+            const embeddedEncoding = lookForEmbeddedEncoding(sample);
+
+            if (embeddedEncoding) {
+              if (!iconv.encodingExists(embeddedEncoding)) {
+                reject(415); // Unsupported Media Type
+                return;
+              }
+
+              charset = embeddedEncoding;
+              usingIconv = true;
+            }
           }
 
           content = Buffer.concat([content, data], content.length + data.length);
@@ -142,6 +169,21 @@ function checkBOM(buffer: Buffer): string {
     return '2:utf-16le';
   else if (bom[0] === 0xEF && bom[1] === 0xBB && bom[2] === 0xBF)
     return '3:utf8';
+
+  return null;
+}
+
+function lookForEmbeddedEncoding(text: string): string {
+  // Strip line breaks and comments first
+  text = text.replace(/\n+/g, ' ').replace(/<!--.*?-->/g, '').trim();
+  // Break into tags
+  const tags = text.replace(/[^<]*(<[^>]*>)[^<]*/g, '$1\n').split('\n').filter(tag => !/^<\//.test(tag));
+  let $: string[];
+
+  for (const tag of tags) {
+    if (/^<meta\b/.test(tag) && ($ = /\bcharset\s*=\s*['"]?\s*([\w\-]+)\b/.exec(tag)))
+      return $[1];
+  }
 
   return null;
 }

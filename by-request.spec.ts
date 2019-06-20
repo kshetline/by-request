@@ -33,18 +33,32 @@ app.get('/test2', (req: Request, res: Response) => {
 });
 
 app.get('/test3', (req: Request, res: Response) => {
-  res.setHeader('Content-Type', 'text/plain; charset=utf-16');
-  res.send(iconv.encode('Hello, world! 🙂', 'utf-16'));
+  res.setHeader('Content-Type', 'text/plain; charset=utf-16le');
+  res.send(iconv.encode('Hello, world! 🙂', 'utf-16le', { addBOM: true }));
 });
 
 app.get('/test4', (req: Request, res: Response) => {
   res.setHeader('Content-Type', 'text/plain');
-  res.send(iconv.encode('Hello, world! 🙂', 'utf-16'));
+  res.send(iconv.encode('Hello, world! 🙂', 'utf-16be'));
 });
 
 app.get('/test5', (req: Request, res: Response) => {
   res.setHeader('Content-Type', 'text/plain');
   res.send(iconv.encode('Côte d\'Ivoire', 'utf-8'));
+});
+
+app.get('/test6', (req: Request, res: Response) => {
+  res.setHeader('Content-Type', 'text/plain; charset=iso-8859-1');
+  res.send(iconv.encode('Côte d\'Ivoire', 'utf-8', { addBOM: true }));
+});
+
+app.get('/test7', (req: Request, res: Response) => {
+  res.setHeader('Content-Type', 'text/html');
+  res.send(iconv.encode(`
+<!-- Ignore this charset="utf-8" -->
+<meta charset="macroman">
+<div>A Møøse once bit my sister... No realli!</div>
+`, 'macroman'));
 });
 
 app.listen(port, () => {
@@ -64,7 +78,7 @@ describe('by-request', () => {
     done();
   });
 
-  it('should read UTF-16 text correctly', async done => {
+  it('should read UTF-16 text (LE, with BOM) correctly', async done => {
     const content = await request(`http://localhost:${port}/test3/`);
     expect(content).toEqual('Hello, world! 🙂');
     done();
@@ -76,9 +90,21 @@ describe('by-request', () => {
     done();
   });
 
-  it('should get garbled text when forcing the wrong encoding', async done => {
+  it('should get garbled text when encoding is left out by sender, and the wrong encoding is suggested', async done => {
     const content = await request(`http://localhost:${port}/test5/`, 'iso-8859-1');
     expect(content).toBe('CÃ´te d\'Ivoire');
+    done();
+  });
+
+  it('should read UTF-8 with BOM correctly, with BOM overriding conflicting sender-specified charset', async done => {
+    const content = await request(`http://localhost:${port}/test6/`);
+    expect(content).toEqual('Côte d\'Ivoire');
+    done();
+  });
+
+  it('should read character encoding embedded near begging of HTML content, example "macroman"', async done => {
+    const content = await request(`http://localhost:${port}/test7/`);
+    expect(content).toContain('A Møøse once bit my sister... No realli!');
     done();
   });
 });
