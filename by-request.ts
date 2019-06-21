@@ -26,7 +26,14 @@ import { UNSUPPORTED_MEDIA_TYPE } from 'http-status-codes';
 const MAX_EXAMINE = 2048;
 
 export interface ExtendedRequestOptions extends RequestOptions {
+  agents?: { http?: typeof http, https?: typeof https };  // from follow-redirects
+  followRedirects?: boolean; // from follow-redirects
+  forceEncoding?: boolean;
+  keepBom?: boolean;
+  maxBodyLength?: number; // from follow-redirects
+  maxRedirects?: number; // from follow-redirects
   progress?: (bytesRead: number, totalBytes: number | undefined) => void;
+  trackRedirects?: boolean; // from follow-redirects
 }
 
 export async function request(urlOrOptions: string | ExtendedRequestOptions, encoding?: string): Promise<string | Buffer>;
@@ -70,7 +77,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
         const binary = (encoding === 'binary' || isBinary(contentType));
         let usingIconv = false;
         let charset: string;
-        let autodetect = false;
+        let autodetect = !options.forceEncoding;
         let bytesRead = 0;
 
         if (contentEncoding === 'gzip') {
@@ -100,13 +107,17 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
         }
 
         if (!binary) {
-          const $ = /\bcharset\s*=\s*['"]?\s*([\w\-]+)\b/.exec(contentType);
-
-          if ($)
-            charset = $[1] === 'utf-8' ? 'utf8' : $[1];
-          else {
+          if (options.forceEncoding)
             charset = encoding;
-            autodetect = true;
+          else {
+            const $ = /\bcharset\s*=\s*['"]?\s*([\w\-]+)\b/.exec(contentType);
+
+            if ($)
+              charset = $[1] === 'utf-8' ? 'utf8' : $[1];
+            else {
+              charset = encoding;
+              autodetect = true;
+            }
           }
 
           if (!/^(ascii|utf8|utf16le|ucs2|base64|binary|hex)$/.test(charset)) {
@@ -143,8 +154,9 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
               charset = bomCharset;
               usingIconv = true;
               autodetect = false;
-              // Remove BOM
-              data = data.slice(Number(bomLength));
+
+              if (!options.keepBom)
+                data = data.slice(Number(bomLength));
             }
           }
 

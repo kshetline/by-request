@@ -21,6 +21,8 @@ import compression from 'compression';
 import express, { Application, Request, Response } from 'express';
 import iconv from 'iconv-lite';
 
+/* -------- Start of test web server -------- */
+
 const app: Application = express();
 const port = process.env.TEST_PORT || 3000;
 
@@ -81,6 +83,8 @@ app.listen(port, () => {
   console.log(`by-request unit test server listening on ${port}.`);
 });
 
+/* -------- End of test web server -------- */
+
 describe('by-request', () => {
   it('should read UTF-8 text correctly', async done => {
     const content = await request(`http://localhost:${port}/test1/`);
@@ -108,6 +112,12 @@ describe('by-request', () => {
 
   it('should get garbled text when encoding is left out by sender, and the wrong encoding is suggested', async done => {
     const content = await request(`http://localhost:${port}/test5/`, 'iso-8859-1');
+    expect(content).toBe('CÃ´te d\'Ivoire');
+    done();
+  });
+
+  it('should get garbled text when correct encoding is left out by sender, but the wrong encoding is forced', async done => {
+    const content = await request(`http://localhost:${port}/test1/`, { forceEncoding: true }, 'iso-8859-1');
     expect(content).toBe('CÃ´te d\'Ivoire');
     done();
   });
