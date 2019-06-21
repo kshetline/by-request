@@ -17,11 +17,14 @@
   OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 import { request } from './by-request';
+import compression from 'compression';
 import express, { Application, Request, Response } from 'express';
 import iconv from 'iconv-lite';
 
 const app: Application = express();
 const port = process.env.TEST_PORT || 3000;
+
+app.use(compression());
 
 app.get('/test1', (req: Request, res: Response) => {
   res.send('Côte d\'Ivoire');
@@ -63,6 +66,15 @@ app.get('/test7/:id', (req: Request, res: Response) => {
     (id === 3 ? '<meta http-equiv="Content-Type" content="text/html; charset=macroman">' : '') + '\n' +
     (id === 4 ? '@charset "macroman";' : '') + '\n' +
     '<div>A Møøse once bit my sister... No realli!</div>', 'macroman'));
+});
+
+app.get('/test8', (req: Request, res: Response) => {
+  const content = ['Very large content '];
+
+  for (let i = 0; i < 100000; ++i)
+    content.push(Math.random().toFixed(3).substr(2));
+
+  res.send(content.join(''));
 });
 
 app.listen(port, () => {
@@ -119,6 +131,22 @@ describe('by-request', () => {
     content = await request(`http://localhost:${port}/test7/4`);
     expect(content).toContain('A Møøse once bit my sister... No realli!');
 
+    done();
+  });
+
+  it('should get progress reports from long streams of input', async done => {
+    let count = 0;
+    let bytesRead = 0;
+    let totalBytes = -1;
+    const content = await request(`http://localhost:${port}/test8/`, { progress: (b, t) => {
+      ++count;
+      bytesRead = b;
+      totalBytes = t;
+    }});
+
+    expect(content).toContain('Very large content');
+    expect(count > 0).toBeTruthy();
+    expect(bytesRead).toBe(totalBytes);
     done();
   });
 });

@@ -25,10 +25,15 @@ import { UNSUPPORTED_MEDIA_TYPE } from 'http-status-codes';
 
 const MAX_EXAMINE = 2048;
 
-export async function request(urlOrOptions: string | RequestOptions, encoding?: string): Promise<string | Buffer>;
-export async function request(url: string, options: RequestOptions, encoding?: string): Promise<string | Buffer>;
-export async function request(urlOrOptions: string | RequestOptions, optionsOrEncoding?: RequestOptions | string, encoding?: string): Promise<string | Buffer> {
-  let options: RequestOptions;
+export interface ExtendedRequestOptions extends RequestOptions {
+  progress?: (bytesRead: number, totalBytes: number | undefined) => void;
+}
+
+export async function request(urlOrOptions: string | ExtendedRequestOptions, encoding?: string): Promise<string | Buffer>;
+export async function request(url: string, options: ExtendedRequestOptions, encoding?: string): Promise<string | Buffer>;
+export async function request(urlOrOptions: string | ExtendedRequestOptions,
+                              optionsOrEncoding?: ExtendedRequestOptions | string, encoding?: string): Promise<string | Buffer> {
+  let options: ExtendedRequestOptions;
 
   if (typeof urlOrOptions === 'string')
     options = parseUrl(urlOrOptions);
@@ -42,7 +47,7 @@ export async function request(urlOrOptions: string | RequestOptions, optionsOrEn
       options = optionsOrEncoding;
   }
   else if (!options)
-    options = urlOrOptions as RequestOptions;
+    options = urlOrOptions as ExtendedRequestOptions;
 
   if (!options.headers)
     options.headers = { 'accept-encoding': 'gzip, deflate, br' };
@@ -60,10 +65,13 @@ export async function request(urlOrOptions: string | RequestOptions, optionsOrEn
         let source = res as any;
         const contentEncoding = (res.headers['content-encoding'] || '').toLowerCase();
         const contentType = (res.headers['content-type'] || '').toLowerCase();
+        let contentLength = parseInt(res.headers['content-length'], 10);
+        contentLength = (isNaN(contentLength) ? undefined : contentLength);
         const binary = (encoding === 'binary' || isBinary(contentType));
         let usingIconv = false;
         let charset: string;
         let autodetect = false;
+        let bytesRead = 0;
 
         if (contentEncoding === 'gzip') {
           source = zlib.createGunzip();
@@ -80,6 +88,15 @@ export async function request(urlOrOptions: string | RequestOptions, optionsOrEn
         else if (contentEncoding && contentEncoding !== 'identity') {
           reject(UNSUPPORTED_MEDIA_TYPE);
           return;
+        }
+
+        if (res !== source) {
+          res.on('data', (data: Buffer) => {
+            bytesRead += data.length;
+
+            if (options.progress)
+              options.progress(bytesRead, contentLength);
+          });
         }
 
         if (!binary) {
@@ -105,6 +122,13 @@ export async function request(urlOrOptions: string | RequestOptions, optionsOrEn
         let content = Buffer.alloc(0);
 
         source.on('data', (data: Buffer) => {
+          if (res === source) {
+            bytesRead += data.length;
+
+            if (options.progress)
+              options.progress(bytesRead, contentLength);
+          }
+
           if (content.length === 0) {
             const bom = checkBOM(data);
 
@@ -143,6 +167,9 @@ export async function request(urlOrOptions: string | RequestOptions, optionsOrEn
         });
 
         source.on('end', () => {
+          if (options.progress && contentLength === undefined)
+            options.progress(bytesRead, bytesRead);
+
           if (binary)
             resolve(content);
           else if (usingIconv)
@@ -211,9 +238,9 @@ function lookForEmbeddedEncoding(buffer: Buffer): string {
     return 'utf-16le';
   }
 
-  let text = buffer.slice(0, Math.min(buffer.length, MAX_EXAMINE)).toString('ascii').toLowerCase().replace('\n', ' ').trim();
+  const text = buffer.slice(0, Math.min(buffer.length, MAX_EXAMINE)).toString('ascii').toLowerCase().replace('\n', ' ').trim();
   // Strip line breaks and comments first
-  let tagText = text.replace(/\n+/g, ' ').replace(/<!--.*?-->/g, '').trim();
+  const tagText = text.replace(/\n+/g, ' ').replace(/<!--.*?-->/g, '').trim();
   // Break into tags
   const tags = tagText.replace(/[^<]*(<[^>]*>)[^<]*/g, '$1\n').split('\n').filter(tag => !/^<\//.test(tag));
   let $: string[];
