@@ -16,7 +16,7 @@
   COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
   OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
-import { request } from './by-request';
+import { request, ResponseInfo } from './by-request';
 import compression from 'compression';
 import express, { Application, Request, Response } from 'express';
 import iconv from 'iconv-lite';
@@ -99,8 +99,11 @@ describe('by-request', () => {
   });
 
   it('should read UTF-16 text (LE, with BOM) correctly', async done => {
-    const content = await request(`http://localhost:${port}/test3/`);
+    let content = await request(`http://localhost:${port}/test3/`);
     expect(content).toEqual('Hello, world! 🙂');
+
+    content = await request(`http://localhost:${port}/test3/`, { ignoreBom: true });
+    expect(content).toEqual('\uFEFFHello, world! 🙂');
     done();
   });
 
@@ -123,8 +126,13 @@ describe('by-request', () => {
   });
 
   it('should read UTF-8 with BOM correctly, with BOM overriding conflicting sender-specified charset', async done => {
-    const content = await request(`http://localhost:${port}/test6/`);
+    let responseInfo: ResponseInfo = null;
+    const content = await request(`http://localhost:${port}/test6/`, {
+      responseInfo: info => responseInfo = info
+    });
     expect(content).toEqual('Côte d\'Ivoire');
+    expect(responseInfo.bomDetected).toBeTruthy();
+    expect(responseInfo.bomRemoved).toBeTruthy();
     done();
   });
 
@@ -148,15 +156,22 @@ describe('by-request', () => {
     let count = 0;
     let bytesRead = 0;
     let totalBytes = -1;
-    const content = await request(`http://localhost:${port}/test8/`, { progress: (b, t) => {
-      ++count;
-      bytesRead = b;
-      totalBytes = t;
-    }});
+    let responseInfo: ResponseInfo = null;
+    const content = await request(`http://localhost:${port}/test8/`, {
+      progress: (b, t) => {
+        ++count;
+        bytesRead = b;
+        totalBytes = t;
+      },
+      responseInfo: info => responseInfo = info
+    });
 
     expect(content).toContain('Very large content');
     expect(count > 0).toBeTruthy();
     expect(bytesRead).toBe(totalBytes);
+    expect(bytesRead).toBe(responseInfo.contentLength);
+    expect(responseInfo.charset).toBe('utf8');
+    expect(responseInfo.contentEncoding).toBe('gzip');
     done();
   });
 });

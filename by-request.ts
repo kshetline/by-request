@@ -29,11 +29,22 @@ export interface ExtendedRequestOptions extends RequestOptions {
   agents?: { http?: typeof http, https?: typeof https };  // from follow-redirects
   followRedirects?: boolean; // from follow-redirects
   forceEncoding?: boolean;
+  ignoreBom?: boolean;
   keepBom?: boolean;
   maxBodyLength?: number; // from follow-redirects
   maxRedirects?: number; // from follow-redirects
   progress?: (bytesRead: number, totalBytes: number | undefined) => void;
+  responseInfo?: (info: ResponseInfo) => void;
   trackRedirects?: boolean; // from follow-redirects
+}
+
+export interface ResponseInfo {
+  bomDetected: boolean;
+  bomRemoved: boolean;
+  charset: string;
+  contentEncoding: string;
+  contentLength: number;
+  contentType: string;
 }
 
 export async function request(urlOrOptions: string | ExtendedRequestOptions, encoding?: string): Promise<string | Buffer>;
@@ -79,6 +90,8 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
         let charset: string;
         let autodetect = !options.forceEncoding;
         let bytesRead = 0;
+        let bomDetected = false;
+        let bomRemoved = false;
 
         if (contentEncoding === 'gzip') {
           source = zlib.createGunzip();
@@ -140,7 +153,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
               options.progress(bytesRead, contentLength);
           }
 
-          if (content.length === 0) {
+          if (content.length === 0 && !options.ignoreBom) {
             const bom = checkBOM(data);
 
             if (bom) {
@@ -154,9 +167,12 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
               charset = bomCharset;
               usingIconv = true;
               autodetect = false;
+              bomDetected = true;
 
-              if (!options.keepBom)
+              if (!options.keepBom) {
                 data = data.slice(Number(bomLength));
+                bomRemoved = true;
+              }
             }
           }
 
@@ -182,10 +198,21 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
           if (options.progress && contentLength === undefined)
             options.progress(bytesRead, bytesRead);
 
+          if (options.responseInfo) {
+            options.responseInfo({
+              bomDetected,
+              bomRemoved,
+              charset: binary ? 'binary' : charset,
+              contentEncoding,
+              contentLength: bytesRead,
+              contentType
+            });
+          }
+
           if (binary)
             resolve(content);
           else if (usingIconv)
-            resolve(iconv.decode(content, charset));
+            resolve(iconv.decode(content, charset, options.ignoreBom ? {stripBOM: false} : undefined));
           else
             resolve(content.toString(charset));
         });

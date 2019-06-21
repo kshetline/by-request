@@ -5,9 +5,9 @@
   "main": "dist/index.js",
   "typings": "dist/index",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc -d",
     "test": "nodemon --ext ts --exec 'tsc && jasmine-node dist --autotest'",
-    "prepublishOnly": "tsc"
+    "prepublishOnly": "tsc -d"
   },
   "author": "Kerry Shetline <kerry@shetline.com>",
   "license": "MIT",
