@@ -16,17 +16,21 @@
   COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
   OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
+import { createWriteStream } from 'fs';
 import { RequestOptions } from 'http';
 import zlib from 'zlib';
 import { http, https } from 'follow-redirects';
 import { parse as parseUrl } from 'url';
 import iconv from 'iconv-lite';
 import { UNSUPPORTED_MEDIA_TYPE } from 'http-status-codes';
+import { Writable } from 'stream';
 
 const MAX_EXAMINE = 2048;
 
 export interface ExtendedRequestOptions extends RequestOptions {
   agents?: { http?: typeof http, https?: typeof https };  // from follow-redirects
+  dontDecompress?: boolean;
+  dontEndStream?: boolean;
   followRedirects?: boolean; // from follow-redirects
   forceEncoding?: boolean;
   ignoreBom?: boolean;
@@ -35,6 +39,7 @@ export interface ExtendedRequestOptions extends RequestOptions {
   maxRedirects?: number; // from follow-redirects
   progress?: (bytesRead: number, totalBytes: number | undefined) => void;
   responseInfo?: (info: ResponseInfo) => void;
+  stream?: Writable;
   trackRedirects?: boolean; // from follow-redirects
 }
 
@@ -45,12 +50,79 @@ export interface ResponseInfo {
   contentEncoding: string;
   contentLength: number;
   contentType: string;
+  stream: Writable;
 }
 
-export async function request(urlOrOptions: string | ExtendedRequestOptions, encoding?: string): Promise<string | Buffer>;
-export async function request(url: string, options: ExtendedRequestOptions, encoding?: string): Promise<string | Buffer>;
-export async function request(urlOrOptions: string | ExtendedRequestOptions,
-                              optionsOrEncoding?: ExtendedRequestOptions | string, encoding?: string): Promise<string | Buffer> {
+export async function requestText(urlOrOptions: string | ExtendedRequestOptions, encoding?: string): Promise<string>;
+export async function requestText(url: string, options: ExtendedRequestOptions, encoding?: string): Promise<string>;
+export async function requestText(urlOrOptions: string | ExtendedRequestOptions,
+                                  optionsOrEncoding?: ExtendedRequestOptions | string, encoding?: string): Promise<string> {
+  if (encoding === 'binary')
+    throw Error('Binary encoding not permitted. Please use requestBinary.');
+
+  return request(urlOrOptions as any, optionsOrEncoding as any, encoding) as Promise<string>;
+}
+
+export async function requestBinary(urlOrOptions: string | ExtendedRequestOptions,
+                                    options?: ExtendedRequestOptions): Promise<Buffer> {
+  return request(urlOrOptions as any, options, 'binary') as Promise<Buffer>;
+}
+
+export async function wget(urlOrOptions: string | ExtendedRequestOptions,
+                           optionsOrPathOrStream?: ExtendedRequestOptions | string | Writable,
+                           pathOrStream?: string | Writable): Promise<number> {
+  let url: string;
+  let options: ExtendedRequestOptions;
+  let path: string;
+  let stream: Writable;
+
+  if (typeof pathOrStream === 'string')
+    path = pathOrStream;
+  else if (pathOrStream)
+    stream = pathOrStream;
+
+  if (!path && typeof optionsOrPathOrStream === 'string')
+    path = optionsOrPathOrStream;
+  else if (!stream && optionsOrPathOrStream && (optionsOrPathOrStream as any).write && (optionsOrPathOrStream as any).end)
+    stream = optionsOrPathOrStream as Writable;
+  else if (optionsOrPathOrStream)
+    options = optionsOrPathOrStream as ExtendedRequestOptions;
+
+  if (typeof urlOrOptions === 'string')
+    url = urlOrOptions;
+  else if (!options)
+    options = urlOrOptions;
+
+  if (!options)
+    options = {};
+
+  const urlFile = (url || options.path || '').replace(/\/$/, '').replace(/.*\//, '');
+  const pathIsDirectory = path && /\/$/.test(path);
+
+  if (pathIsDirectory)
+    path += urlFile;
+  else if (!path)
+    path = urlFile;
+
+  if (!path && !stream)
+    throw new Error('A Writable stream, a file path, or a URL from which a file name can be extracted must be provided.');
+
+  if (!stream) {
+    stream = createWriteStream(path);
+
+    await new Promise((resolve, reject) => {
+      stream.on('open', () => resolve());
+      stream.on('error', error => reject(error));
+    });
+  }
+
+  options.stream = stream;
+
+  return request(url || options, url ? options : undefined, 'binary') as Promise<number>;
+}
+
+async function request(urlOrOptions: string | ExtendedRequestOptions,
+                       optionsOrEncoding?: ExtendedRequestOptions | string, encoding?: string): Promise<string | Buffer | number> {
   let options: ExtendedRequestOptions;
 
   if (typeof urlOrOptions === 'string')
@@ -76,8 +148,9 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
     encoding = 'utf8';
 
   const protocol = (options.protocol === 'https:' ? https : http);
+  const stream = options.stream;
 
-  return new Promise<string | Buffer>((resolve, reject) => {
+  return new Promise<string | Buffer | number>((resolve, reject) => {
     protocol.get(options, res => {
       if (res.statusCode === 200) {
         let source = res as any;
@@ -85,29 +158,32 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
         const contentType = (res.headers['content-type'] || '').toLowerCase();
         let contentLength = parseInt(res.headers['content-length'], 10);
         contentLength = (isNaN(contentLength) ? undefined : contentLength);
-        const binary = (encoding === 'binary' || isBinary(contentType));
+        const binary = (encoding === 'binary' || !!options.stream || isBinary(contentType));
+        const endStream = !options.dontEndStream && stream !== process.stdout && stream !== process.stderr;
         let usingIconv = false;
         let charset: string;
-        let autodetect = !options.forceEncoding;
+        let autodetect = !options.forceEncoding && !binary;
         let bytesRead = 0;
         let bomDetected = false;
         let bomRemoved = false;
 
-        if (contentEncoding === 'gzip') {
-          source = zlib.createGunzip();
-          res.pipe(source);
-        }
-        else if (contentEncoding === 'deflate') {
-          source = zlib.createInflate();
-          res.pipe(source);
-        }
-        else if (contentEncoding === 'br') {
-          source = zlib.createBrotliDecompress();
-          res.pipe(source);
-        }
-        else if (contentEncoding && contentEncoding !== 'identity') {
-          reject(UNSUPPORTED_MEDIA_TYPE);
-          return;
+        if (!options.dontDecompress || !binary) {
+          if (contentEncoding === 'gzip') {
+            source = zlib.createGunzip();
+            res.pipe(source);
+          }
+          else if (contentEncoding === 'deflate') {
+            source = zlib.createInflate();
+            res.pipe(source);
+          }
+          else if (contentEncoding === 'br') {
+            source = zlib.createBrotliDecompress();
+            res.pipe(source);
+          }
+          else if (contentEncoding && contentEncoding !== 'identity') {
+            reject(UNSUPPORTED_MEDIA_TYPE);
+            return;
+          }
         }
 
         if (res !== source) {
@@ -191,7 +267,16 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
             }
           }
 
-          content = Buffer.concat([content, data], content.length + data.length);
+          if (stream) {
+            stream.write(data, error => {
+              if (error) {
+                stream.end();
+                reject(error);
+              }
+            });
+          }
+          else
+            content = Buffer.concat([content, data], content.length + data.length);
         });
 
         source.on('end', () => {
@@ -203,16 +288,23 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
               bomDetected,
               bomRemoved,
               charset: binary ? 'binary' : charset,
-              contentEncoding,
+              contentEncoding: contentEncoding || 'identity',
               contentLength: bytesRead,
-              contentType
+              contentType,
+              stream
             });
           }
 
-          if (binary)
+          if (stream) {
+            if (endStream)
+              stream.end();
+
+            resolve(bytesRead);
+          }
+          else if (binary)
             resolve(content);
           else if (usingIconv)
-            resolve(iconv.decode(content, charset, options.ignoreBom ? {stripBOM: false} : undefined));
+            resolve(iconv.decode(content, charset, options.ignoreBom ? { stripBOM: false } : undefined));
           else
             resolve(content.toString(charset));
         });

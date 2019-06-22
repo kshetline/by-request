@@ -6,7 +6,6 @@
     "noImplicitAny": true,
     "noImplicitThis": true,
     "alwaysStrict": true,
-    "noUnusedLocals": true,
     "noImplicitReturns": true,
     "moduleResolution": "node",
     "esModuleInterop": true
