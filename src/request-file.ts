@@ -2,9 +2,9 @@ import { ExtendedRequestOptions, request } from './by-request';
 import { createWriteStream } from 'fs';
 import { Writable } from 'stream';
 
-export async function wget(urlOrOptions: string | ExtendedRequestOptions,
-                           optionsOrPathOrStream?: ExtendedRequestOptions | string | Writable,
-                           pathOrStream?: string | Writable): Promise<number> {
+export async function requestFile(urlOrOptions: string | ExtendedRequestOptions,
+                                  optionsOrPathOrStream?: ExtendedRequestOptions | string | Writable,
+                                  pathOrStream?: string | Writable): Promise<number> {
   let url: string;
   let options: ExtendedRequestOptions;
   let path: string;
@@ -54,3 +54,5 @@ export async function wget(urlOrOptions: string | ExtendedRequestOptions,
 
   return request(url || options, url ? options : undefined, 'binary') as Promise<number>;
 }
+
+export const wget = requestFile;
