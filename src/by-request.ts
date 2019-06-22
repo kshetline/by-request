@@ -16,7 +16,6 @@
   COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
   OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
-import { createWriteStream } from 'fs';
 import { RequestOptions } from 'http';
 import zlib from 'zlib';
 import { http, https } from 'follow-redirects';
@@ -53,75 +52,7 @@ export interface ResponseInfo {
   stream: Writable;
 }
 
-export async function requestText(urlOrOptions: string | ExtendedRequestOptions, encoding?: string): Promise<string>;
-export async function requestText(url: string, options: ExtendedRequestOptions, encoding?: string): Promise<string>;
-export async function requestText(urlOrOptions: string | ExtendedRequestOptions,
-                                  optionsOrEncoding?: ExtendedRequestOptions | string, encoding?: string): Promise<string> {
-  if (encoding === 'binary')
-    throw Error('Binary encoding not permitted. Please use requestBinary.');
-
-  return request(urlOrOptions as any, optionsOrEncoding as any, encoding) as Promise<string>;
-}
-
-export async function requestBinary(urlOrOptions: string | ExtendedRequestOptions,
-                                    options?: ExtendedRequestOptions): Promise<Buffer> {
-  return request(urlOrOptions as any, options, 'binary') as Promise<Buffer>;
-}
-
-export async function wget(urlOrOptions: string | ExtendedRequestOptions,
-                           optionsOrPathOrStream?: ExtendedRequestOptions | string | Writable,
-                           pathOrStream?: string | Writable): Promise<number> {
-  let url: string;
-  let options: ExtendedRequestOptions;
-  let path: string;
-  let stream: Writable;
-
-  if (typeof pathOrStream === 'string')
-    path = pathOrStream;
-  else if (pathOrStream)
-    stream = pathOrStream;
-
-  if (!path && typeof optionsOrPathOrStream === 'string')
-    path = optionsOrPathOrStream;
-  else if (!stream && optionsOrPathOrStream && (optionsOrPathOrStream as any).write && (optionsOrPathOrStream as any).end)
-    stream = optionsOrPathOrStream as Writable;
-  else if (optionsOrPathOrStream)
-    options = optionsOrPathOrStream as ExtendedRequestOptions;
-
-  if (typeof urlOrOptions === 'string')
-    url = urlOrOptions;
-  else if (!options)
-    options = urlOrOptions;
-
-  if (!options)
-    options = {};
-
-  const urlFile = (url || options.path || '').replace(/\/$/, '').replace(/.*\//, '');
-  const pathIsDirectory = path && /\/$/.test(path);
-
-  if (pathIsDirectory)
-    path += urlFile;
-  else if (!path)
-    path = urlFile;
-
-  if (!path && !stream)
-    throw new Error('A Writable stream, a file path, or a URL from which a file name can be extracted must be provided.');
-
-  if (!stream) {
-    stream = createWriteStream(path);
-
-    await new Promise((resolve, reject) => {
-      stream.on('open', () => resolve());
-      stream.on('error', error => reject(error));
-    });
-  }
-
-  options.stream = stream;
-
-  return request(url || options, url ? options : undefined, 'binary') as Promise<number>;
-}
-
-async function request(urlOrOptions: string | ExtendedRequestOptions,
+export async function request(urlOrOptions: string | ExtendedRequestOptions,
                        optionsOrEncoding?: ExtendedRequestOptions | string, encoding?: string): Promise<string | Buffer | number> {
   let options: ExtendedRequestOptions;
 
