@@ -66,6 +66,16 @@ if (!(global as any).testServerStarted) {
     res.send(Buffer.from([0, 1, 2, 3]));
   });
 
+  app.get('/test10', (req: Request, res: Response) => {
+    const json = { foo: 'bar', baz: 'quux' };
+    const callback = req.query.callback;
+
+    if (callback)
+      res.jsonp(json);
+    else
+      res.json(json);
+  });
+
   app.listen(port, () => {
     console.log(`by-request unit test server listening on ${port}.`);
   });

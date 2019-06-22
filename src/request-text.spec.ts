@@ -1,6 +1,8 @@
 import { ResponseInfo } from './by-request';
+import { NOT_FOUND } from 'http-status-codes';
 import { requestText } from './request-text';
 import { port } from './test-server.spec';
+import { requestJson } from './request-json';
 
 describe('request-text', () => {
   it('should read UTF-8 text correctly', async done => {
@@ -21,6 +23,7 @@ describe('request-text', () => {
 
     content = await requestText(`http://localhost:${port}/test3/`, { ignoreBom: true });
     expect(content).toEqual('\uFEFFHello, world! 🙂');
+
     done();
   });
 
@@ -47,9 +50,11 @@ describe('request-text', () => {
     const content = await requestText(`http://localhost:${port}/test6/`, {
       responseInfo: info => responseInfo = info
     });
+
     expect(content).toEqual('Côte d\'Ivoire');
     expect(responseInfo.bomDetected).toBeTruthy();
     expect(responseInfo.bomRemoved).toBeTruthy();
+
     done();
   });
 
@@ -89,6 +94,19 @@ describe('request-text', () => {
     expect(bytesRead).toBe(responseInfo.contentLength);
     expect(responseInfo.charset).toBe('utf8');
     expect(responseInfo.contentEncoding).toBe('gzip');
+
+    done();
+  });
+
+  it('should throw an exception for an HTTP error', async done => {
+    try {
+      await requestJson(`http://localhost:${port}/doesnt_exist/`);
+      expect(false).toBeTruthy('Exception for HTTP error should have been thrown.');
+    }
+    catch (err) {
+      expect(err).toEqual(NOT_FOUND);
+    }
+
     done();
   });
 });

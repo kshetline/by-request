@@ -45,6 +45,7 @@ export interface ExtendedRequestOptions extends RequestOptions {
 export interface ResponseInfo {
   bomDetected: boolean;
   bomRemoved: boolean;
+  callback?: string;
   charset: string;
   contentEncoding: string;
   contentLength: number;
@@ -83,7 +84,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
 
   return new Promise<string | Buffer | number>((resolve, reject) => {
     protocol.get(options, res => {
-      if (res.statusCode === 200) {
+      if (200 <= res.statusCode && res.statusCode < 300) {
         let source = res as any;
         const contentEncoding = (res.headers['content-encoding'] || '').toLowerCase();
         const contentType = (res.headers['content-type'] || '').toLowerCase();

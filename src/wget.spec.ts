@@ -12,6 +12,7 @@ describe('wget', () => {
     await wget(`http://localhost:${port}/test1/`, path);
     expect(fs.readFileSync('sample.txt').toString('utf8')).toEqual('Côte d\'Ivoire');
     fs.unlinkSync(path);
+
     done();
   });
 });
