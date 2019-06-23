@@ -28,4 +28,19 @@ describe('request-binary', () => {
 
     done();
   });
+
+  it('should detect and catch an exception for corrupted data', async done => {
+    let content = await requestBinary(`http://localhost:${port}/test11/`);
+    expect(content.length).toEqual(8);
+
+    try {
+      content = await requestBinary(`http://localhost:${port}/test11/?corrupt=true`);
+      expect(false).toBeTruthy('Exception failed to be thrown for corrupt data');
+    }
+    catch (err) {
+      expect(err);
+    }
+
+    done();
+  });
 });

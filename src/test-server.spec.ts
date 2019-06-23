@@ -1,6 +1,7 @@
 import compression from 'compression';
 import express, { Application, Request, Response } from 'express';
 import iconv from 'iconv-lite';
+import * as zlib from 'zlib';
 
 export const port = process.env.TEST_PORT || 3000;
 
@@ -74,6 +75,22 @@ if (!(global as any).testServerStarted) {
       res.jsonp(json);
     else
       res.json(json);
+  });
+
+  app.get('/test11', (req: Request, res: Response) => {
+    const corrupt = !!req.query.corrupt;
+    const data = [0, 1, 2, 3, 4, 5, 6, 7];
+    const content = Buffer.from(data);
+    let zipped = zlib.gzipSync(content);
+
+    if (corrupt) {
+      const data2 = Array.from(zipped);
+      zipped[10] = 0;
+      zipped = Buffer.from(data);
+    }
+
+    res.setHeader('Content-Encoding', 'gzip');
+    res.send(zipped);
   });
 
   app.listen(port, () => {

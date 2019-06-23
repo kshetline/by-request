@@ -27,19 +27,20 @@ import { Writable } from 'stream';
 const MAX_EXAMINE = 2048;
 
 export interface ExtendedRequestOptions extends RequestOptions {
-  agents?: { http?: typeof http, https?: typeof https };  // from follow-redirects
+  agents?: { http?: typeof http, https?: typeof https };  // follow-redirects
   dontDecompress?: boolean;
   dontEndStream?: boolean;
-  followRedirects?: boolean; // from follow-redirects
+  followRedirects?: boolean; // follow-redirects
   forceEncoding?: boolean;
   ignoreBom?: boolean;
   keepBom?: boolean;
-  maxBodyLength?: number; // from follow-redirects
-  maxRedirects?: number; // from follow-redirects
+  maxBodyLength?: number; // follow-redirects
+  maxRedirects?: number; // follow-redirects
   progress?: (bytesRead: number, totalBytes: number | undefined) => void;
   responseInfo?: (info: ResponseInfo) => void;
-  stream?: Writable;
-  trackRedirects?: boolean; // from follow-redirects
+  stream?: Writable; // For internal use only
+  streamCreated?: boolean; // For internal use only
+  trackRedirects?: boolean; // follow-redirects
 }
 
 export interface ResponseInfo {
@@ -76,13 +77,20 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
   else if (!options.headers['accept-encoding'])
     options.headers['accept-encoding'] = 'gzip, deflate, br';
 
-  if (!encoding)
+  let forceEncoding = options.forceEncoding;
+
+  if (!encoding) {
     encoding = 'utf8';
+    // Only an explicit encoding will be forced, not this default.
+    forceEncoding = false;
+  }
 
   const protocol = (options.protocol === 'https:' ? https : http);
   const stream = options.stream;
 
   return new Promise<string | Buffer | number>((resolve, reject) => {
+    const endStream = !options.dontEndStream && stream !== process.stdout && stream !== process.stderr;
+
     protocol.get(options, res => {
       if (200 <= res.statusCode && res.statusCode < 300) {
         let source = res as any;
@@ -91,10 +99,9 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
         let contentLength = parseInt(res.headers['content-length'], 10);
         contentLength = (isNaN(contentLength) ? undefined : contentLength);
         const binary = (encoding === 'binary' || !!options.stream || isBinary(contentType));
-        const endStream = !options.dontEndStream && stream !== process.stdout && stream !== process.stderr;
         let usingIconv = false;
         let charset: string;
-        let autodetect = !options.forceEncoding && !binary;
+        let autodetect = !forceEncoding && !binary;
         let bytesRead = 0;
         let bomDetected = false;
         let bomRemoved = false;
@@ -119,6 +126,13 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
         }
 
         if (res !== source) {
+          res.on('error', error => {
+            if (stream && (endStream || options.streamCreated))
+              stream.end();
+
+            reject(error);
+          });
+
           res.on('data', (data: Buffer) => {
             bytesRead += data.length;
 
@@ -128,7 +142,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
         }
 
         if (!binary) {
-          if (options.forceEncoding)
+          if (forceEncoding)
             charset = encoding;
           else {
             const $ = /\bcharset\s*=\s*['"]?\s*([\w\-]+)\b/.exec(contentType);
@@ -153,6 +167,13 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
 
         let content = Buffer.alloc(0);
 
+        source.on('error', (error: any) => {
+          if (stream && (endStream || options.streamCreated))
+            stream.end();
+
+          reject(error);
+        });
+
         source.on('data', (data: Buffer) => {
           if (res === source) {
             bytesRead += data.length;
@@ -167,14 +188,17 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
             if (bom) {
               const [bomLength, bomCharset] = bom.split(':');
 
-              if (!iconv.encodingExists(bomCharset)) {
-                reject(UNSUPPORTED_MEDIA_TYPE);
-                return;
+              if (!forceEncoding) {
+                if (!iconv.encodingExists(bomCharset)) {
+                  reject(UNSUPPORTED_MEDIA_TYPE);
+                  return;
+                }
+
+                charset = bomCharset;
+                usingIconv = (bomCharset !== 'utf8');
+                autodetect = false;
               }
 
-              charset = bomCharset;
-              usingIconv = true;
-              autodetect = false;
               bomDetected = true;
 
               if (!options.keepBom) {
@@ -241,8 +265,12 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
             resolve(content.toString(charset));
         });
       }
-      else
+      else {
+        if (stream && (endStream || options.streamCreated))
+          stream.end();
+
         reject(res.statusCode);
+      }
     }).on('error', err => reject(err));
   });
 }

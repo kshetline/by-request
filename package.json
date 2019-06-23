@@ -1,6 +1,6 @@
 {
   "name": "by-request",
-  "version": "1.0.0-alpha.1",
+  "version": "1.0.0",
   "description": "Simple Node http client for use with promises, async/await.",
   "main": "dist/index.js",
   "typings": "dist/index",
@@ -28,7 +28,10 @@
     "curl",
     "bom",
     "character",
-    "encoding"
+    "encoding",
+    "file",
+    "json",
+    "jsonp"
   ],
   "dependencies": {
     "follow-redirects": "^1.7.0",

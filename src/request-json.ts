@@ -2,7 +2,13 @@ import { ExtendedRequestOptions, ResponseInfo } from './by-request';
 import { requestText } from './request-text';
 
 export async function requestJson(urlOrOptions: string | ExtendedRequestOptions,
-                                    options?: ExtendedRequestOptions): Promise<any> {
+                                  options?: ExtendedRequestOptions): Promise<any> {
+  if (urlOrOptions && typeof(urlOrOptions) !== 'string')
+    delete urlOrOptions.stream;
+
+  if (options)
+    delete options.stream;
+
   const actualOptions = (options || (typeof urlOrOptions === 'string' ? null : urlOrOptions));
   const savedInfoCallback = actualOptions && actualOptions.responseInfo;
   let responseInfo: ResponseInfo = null;
