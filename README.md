@@ -37,12 +37,12 @@ let whereAmI = await requestJson('http://ip-api.com/json/');
 ```
 ```
 let currentTemperature = parseFloat((await requestText('https://howhotisit.biz/forecast/?zip=02134'))
-      .replace(/.*Current temperature:\s*([0-9.]+).*/i, '$1'));
+      .replace(/.*Current temperature:\s*([0-9.]+).*/is, '$1'));
 ```
 
 HTTP(S) redirects are automatically handled using [follow-redirects](https://github.com/follow-redirects/follow-redirects), and a wide variety of character encodings are supported using [iconv-lite](https://github.com/ashtuchkin/iconv-lite).
 
-HTTP(S) responses which are compressed using the `gzip`, `deflate` or `br` methods are automatically decompressed. (When using `requestBinary` or `requestFile`, this automatic decompression can be disabled.)
+HTTP(S) responses which are compressed using the `gzip`, `deflate` or `br` methods are automatically decompressed. (When using `requestBinary()` or `requestFile()`, this automatic decompression can be disabled.)
 
 URLs can be specified either as strings or via an `ExtendedRequestOptions` object. When a URL is specified as a string, additional options can still be specified via a subsequent `ExtendedRequestOptions` parameter.
 
@@ -64,16 +64,16 @@ interface ExtendedRequestOptions extends RequestOptions {
   trackRedirects?: boolean; // follow-redirects
 }
 ```
-For the options marked "follow-redirects", set the [follow-redirects documentation](https://github.com/follow-redirects/follow-redirects/blob/master/README.md).
+For the options marked "follow-redirects", see the [follow-redirects documentation](https://github.com/follow-redirects/follow-redirects/blob/master/README.md).
 
 The other options are as follows:
 
 * `dontDecompress`: For use with `requestBinary()` and `requestFile()`, set to `true` to prevent automatic decompression of `gzip`, `deflate`, or `br` data.
-* `dontEndStream`: For use with `requestFile`, this prevents `stream.end()` from automatically being called when `requestFile` terminates. This option applies to either a stream passed in as an argument (in lieu of a file path), or to the internally-created file output stream. If you choose not to end the internally-created stream automatically, you should also use the `responseInfo` callback so that you can access that stream to end it later. Errors will always end any internally-created stream.
-* `forceEncoding`: For use with `requestText`, setting this to `true` causes the `encoding` argument passed into the function to override any encoding specified by the retrieved data itself.
-* `ignoreBom`: By default `requestJson` and `requestText` look to see if a UTF-8, -16, or -32 BOM [(Byte Order Mark)](https://en.wikipedia.org/wiki/Byte_order_mark) is present as one way of determining content character encoding. Setting `ignoreBom` to `true` allows the BOM to be ignored.
-* `keepBom`: If a BOM is detected by `requestJson` or `requestText`, it is normally deleted. Set `keepBom` to `true` to preserve the BOM.
-* `progress`: As seen in the `requestFile` example at the beginning of this document, this is an optional callback that provides feedback during the retrieval of large resources, returning the number of bytes read at a particular point in time, and, if known (otherwise `undefined`), the total number of bytes expected.
+* `dontEndStream`: For use with `requestFile()`, this prevents `stream.end()` from automatically being called when `requestFile()` terminates. This option applies to either a stream passed in as an argument (in lieu of a file path), or to the internally-created file output stream. If you choose not to end the internally-created stream automatically, you should also use the `responseInfo` callback so that you can access that stream to end it later. Errors will always end any internally-created stream.
+* `forceEncoding`: For use with `requestText()`, setting this to `true` causes the `encoding` argument passed into the function to override any encoding specified by the retrieved data itself.
+* `ignoreBom`: By default `requestJson()` and `requestText()` look to see if a UTF-8, -16, or -32 BOM [(Byte Order Mark)](https://en.wikipedia.org/wiki/Byte_order_mark) is present as one way of determining content character encoding. Setting `ignoreBom` to `true` allows the BOM to be ignored.
+* `keepBom`: If a BOM is detected by `requestJson()` or `requestText()`, it is normally deleted. Set `keepBom` to `true` to preserve the BOM.
+* `progress`: As seen in the `requestFile()` example at the beginning of this document, this is an optional callback that provides feedback during the retrieval of large resources, returning the number of bytes read at a particular point in time, and, if known (otherwise `undefined`), the total number of bytes expected.
 * `responseInfo`: This optional callback provides meta-information about the resource which has been retrieved and the retrieval process. The data provided looks like this:
 ```
 interface ResponseInfo {
@@ -95,11 +95,11 @@ interface ResponseInfo {
 * `contentEncoding`: The value of the HTTP `Content-Encoding` header.
 * `contentLength`: The total number of bytes read. For compressed data, this is the compressed length, not the expanded length.
 * `contentType`: The value of the HTTP `Content-Type` header.
-* `stream`: When using `requestFile`, this is either the stream that was passed into the function, or the stream that was created for the file path.
+* `stream`: When using `requestFile()`, this is either the stream that was passed into the function, or the stream that was created for the file path.
 
 ### Functions
 
-#### `requestBinary`
+#### `requestBinary(`...`)`
 
 ```
 async function requestBinary(urlOrOptions: string | ExtendedRequestOptions,
@@ -108,7 +108,7 @@ async function requestBinary(urlOrOptions: string | ExtendedRequestOptions,
 
 Gets binary data as a `Buffer`. Apart from decompression (which can be optionally disabled), data is retrieved as sent, with no character encoding transformations performed.
 
-#### `requestFile` (or `wget`)
+#### `requestFile(`...`)` (or `wget(`...`)`)
 ```
 async function requestFile(urlOrOptions: string | ExtendedRequestOptions,
                            optionsOrPathOrStream?: ExtendedRequestOptions | string | Writable,
@@ -120,7 +120,7 @@ If a path string is specified that does not end in a slash (`/`), that path is u
 
 If no path (or `Writable` stream) is specified, only a URL, the file name is extracted from the end of the URL, and the file is created in the current working directory.
 
-#### `requestJson`
+#### `requestJson(`...`)`
 ```
 async function requestJson(urlOrOptions: string | ExtendedRequestOptions,
                            options?: ExtendedRequestOptions): Promise<any>
@@ -129,7 +129,7 @@ Gets JSON or JSONP data, returning it as whatever data type is applicable. If JS
 
 Since JSON is now almost universally encoded using UTF-8, no encoding parameter is provided for this function, and the retrieved data will be decoded by something other than UTF-8 only if the HTTP `Content-Type` header, or a BOM marker, indicate otherwise. Should the odd case arise where you need to force the use of a different encoding, use `requestText()` instead, along with `JSON.parse()`.
 
-#### `requestText`
+#### `requestText(`...`)`
 ```
 async function requestText(urlOrOptions: string | ExtendedRequestOptions, encoding?: string): Promise<string>
 
