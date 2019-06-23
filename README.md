@@ -4,7 +4,7 @@
 
 The **by-request** package provides four ways to retrieve data via HTTP/HTTPS, all of which return `Promise`s, and all of which are suitable for use with `async`/`await`:
 
-* `requestBinary(`...`): Promise<Buffer>` (_also called_ `wget`)
+* `requestBinary(`...`): Promise<Buffer>`
 * `requestFile(`...`): Promise<number>` (_can also output to `Writable` streams instead of files_)
 * `requestJson(`...`): Promise<any>`
 * `requestText(`...`): Promise<string>`
