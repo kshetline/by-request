@@ -1,8 +1,8 @@
 import fs from 'fs';
 import { requestFile, wget } from './request-file';
-import { port } from './test-server.spec';
+import { port, TEST_TEXT_1 } from './test-server.spec';
 
-describe('wget', () => {
+describe('request-file', () => {
   it('should be able to download a text file', async done => {
     const path = 'sample.txt';
 
@@ -10,7 +10,7 @@ describe('wget', () => {
       fs.unlinkSync(path);
 
     await requestFile(`http://localhost:${port}/test1/`, path);
-    expect(fs.readFileSync(path).toString('utf8')).toEqual('Côte d\'Ivoire');
+    expect(fs.readFileSync(path).toString('utf8')).toEqual(TEST_TEXT_1);
     fs.unlinkSync(path);
 
     done();

@@ -20,7 +20,7 @@ import { RequestOptions } from 'http';
 import zlib from 'zlib';
 import { http, https } from 'follow-redirects';
 import { parse as parseUrl } from 'url';
-import iconv from 'iconv-lite';
+import iconv from 'ks-iconv-lite';
 import { UNSUPPORTED_MEDIA_TYPE } from 'http-status-codes';
 import { Writable } from 'stream';
 

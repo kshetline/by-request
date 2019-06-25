@@ -1,4 +1,4 @@
-# by-request
+# by-request [![Build Status](https://travis-ci.com/kshetline/by-request.svg?branch=master)](https://travis-ci.com/kshetline/by-request)
 
 ## Simple Node HTTP/HTTPS client for use with promises and async/await.
 
@@ -10,6 +10,8 @@ The **by-request** package provides four ways to retrieve data via HTTP/HTTPS, a
 * `requestText(`...`): Promise<string>`
 
 ### Installation
+
+[![NPM Stats](https://nodei.co/npm/by-request.png?downloads=true&downloadRank=true)](https://npmjs.org/packages/by-request/)
 
 `npm install by-request`
 
@@ -26,7 +28,7 @@ const options = {progress: (bytesRead, totalBytes) => {
     console.log((bytesRead / 1024).toFixed(1) + 'K downloaded');
 }};
 
-requestFile('https://boring.org/2014/07/meeting_minutes.docx', options, 'documents/tldnr/').then(length => {
+requestFile('https://tedious.org/2014/07/meeting_minutes.docx', options, 'documents/tldnr/').then(length => {
   console.log('Document retrieved, length in bytes: ' + length);
 }).catch(err => {
   console.error('Something went wrong: ' + err.message);
@@ -37,10 +39,10 @@ let whereAmI = await requestJson('http://ip-api.com/json/');
 ```
 ```
 let currentTemperature = parseFloat((await requestText('https://howhotisit.biz/forecast/?zip=02134'))
-      .replace(/.*Current temperature:\s*([0-9.]+).*/is, '$1'));
+      .replace(/.*Current temperature:\s*([-.0-9]+).*/is, '$1'));
 ```
 
-HTTP(S) redirects are automatically handled using [follow-redirects](https://github.com/follow-redirects/follow-redirects), and a wide variety of character encodings are supported using [iconv-lite](https://github.com/ashtuchkin/iconv-lite).
+HTTP(S) redirects are automatically handled using [follow-redirects](https://github.com/follow-redirects/follow-redirects), and a wide variety of character encodings are supported using [iconv-lite](https://github.com/ashtuchkin/iconv-lite). _(UTF-32, not currently covered by the current release of iconv-lite, is also supported.)_
 
 HTTP(S) responses which are compressed using the `gzip`, `deflate` or `br` methods are automatically decompressed. (When using `requestBinary()` or `requestFile()`, this automatic decompression can be disabled.)
 
@@ -141,9 +143,9 @@ async function requestText(urlOrOptions: string | ExtendedRequestOptions,
 Gets text data and returns it as a string. The character encoding scheme used to decode the text is applied according to the following order of priority:
 
 1. The `encoding` parameter (or `optionsOrEncoding` parameter, as a string value) when the `forceEncoding` option is `true`. This will override any declared encoding based on a BOM, HTTP headers, or text content.
-1. The encoding expressed via a BOM, if present, and if not ignored via the `ignoreBom` option. If the BOM indicates UTF-32 encoding (either BE or LE), neither of these encodings are currently supported, and an HTTP error status of `UNSUPPORTED_MEDIA_TYPE` (415) will result.
+1. The encoding expressed via a BOM, if present, and if not ignored via the `ignoreBom` option.
 1. The `charset` value, if provided, in the HTTP `Content-Type` header.
-1. The UTF-16 or UTF-32 encoding implied by the pattern of zero and non-zero values in the first four bytes of the HTTP(S) content. Again, if UTF-32 is indicated, this will result in an `UNSUPPORTED_MEDIA_TYPE` error.
+1. The UTF-16 or UTF-32 encoding implied by the pattern of zero and non-zero values in the first four bytes of the HTTP(S) content.
 1. Any content-specified encoding that can be seen by looking within the first 2K of data, interpreting that data as if it were ASCII, and finding declarations such as these:
 
     `<?xml version="1.0" encoding="iso-8859-1"?>`

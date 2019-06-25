@@ -1,7 +1,11 @@
 import compression from 'compression';
 import express, { Application, Request, Response } from 'express';
-import iconv from 'iconv-lite';
+import iconv from 'ks-iconv-lite';
 import * as zlib from 'zlib';
+
+export const TEST_TEXT_1 = 'Côte d\'Ivoire';
+export const TEST_TEXT_2 = 'Hello, world! 🙂';
+export const TEST_TEXT_3 = '❝Some more text 😱 to try ☔ 샘플 텍스트❞';
 
 export const port = process.env.TEST_PORT || 3000;
 
@@ -12,32 +16,32 @@ if (!(global as any).testServerStarted) {
   app.use(compression());
 
   app.get('/test1', (req: Request, res: Response) => {
-    res.send('Côte d\'Ivoire');
+    res.send(TEST_TEXT_1);
   });
 
   app.get('/test2', (req: Request, res: Response) => {
     res.setHeader('Content-Type', 'text/plain; charset=iso-8859-1');
-    res.send(iconv.encode('Côte d\'Ivoire', 'iso-8859-1'));
+    res.send(iconv.encode(TEST_TEXT_1, 'iso-8859-1'));
   });
 
   app.get('/test3', (req: Request, res: Response) => {
     res.setHeader('Content-Type', 'text/plain; charset=utf-16le');
-    res.send(iconv.encode('Hello, world! 🙂', 'utf-16le', { addBOM: true }));
+    res.send(iconv.encode(TEST_TEXT_2, 'utf-16le', { addBOM: true }));
   });
 
   app.get('/test4', (req: Request, res: Response) => {
     res.setHeader('Content-Type', 'text/plain');
-    res.send(iconv.encode('Hello, world! 🙂', 'utf-16be'));
+    res.send(iconv.encode(TEST_TEXT_2, 'utf-16be'));
   });
 
   app.get('/test5', (req: Request, res: Response) => {
     res.setHeader('Content-Type', 'text/plain');
-    res.send(iconv.encode('Côte d\'Ivoire', 'utf-8'));
+    res.send(iconv.encode(TEST_TEXT_1, 'utf-8'));
   });
 
   app.get('/test6', (req: Request, res: Response) => {
     res.setHeader('Content-Type', 'text/plain; charset=iso-8859-1');
-    res.send(iconv.encode('Côte d\'Ivoire', 'utf-8', { addBOM: true }));
+    res.send(iconv.encode(TEST_TEXT_1, 'utf-8', { addBOM: true }));
   });
 
   app.get('/test7/:id', (req: Request, res: Response) => {
@@ -91,6 +95,11 @@ if (!(global as any).testServerStarted) {
 
     res.setHeader('Content-Encoding', 'gzip');
     res.send(zipped);
+  });
+
+  app.get('/test12', (req: Request, res: Response) => {
+    res.setHeader('Content-Type', 'text/plain');
+    res.send(iconv.encode(TEST_TEXT_3, req.query.enc, { addBOM: true }));
   });
 
   app.listen(port, () => {

@@ -1,6 +1,7 @@
 import { requestJson } from './request-json';
 import { port } from './test-server.spec';
 import { ResponseInfo } from './by-request';
+import { NOT_FOUND } from 'http-status-codes';
 
 describe('request-binary', () => {
   it('should read JSON data correctly', async done => {
@@ -31,6 +32,18 @@ describe('request-binary', () => {
     }
     catch (err) {
       expect(err && err.message).toEqual('Valid JSON not found');
+    }
+
+    done();
+  });
+
+  it('should throw an exception for an HTTP error', async done => {
+    try {
+      await requestJson(`http://localhost:${port}/doesnt_exist/`);
+      expect(false).toBeTruthy('Exception for HTTP error should have been thrown.');
+    }
+    catch (err) {
+      expect(err).toEqual(NOT_FOUND);
     }
 
     done();

@@ -1,47 +1,45 @@
 import { ResponseInfo } from './by-request';
-import { NOT_FOUND } from 'http-status-codes';
 import { requestText } from './request-text';
-import { port } from './test-server.spec';
-import { requestJson } from './request-json';
+import { port, TEST_TEXT_1, TEST_TEXT_2, TEST_TEXT_3 } from './test-server.spec';
 
 describe('request-text', () => {
   it('should read UTF-8 text correctly', async done => {
     const content = await requestText(`http://localhost:${port}/test1/`);
-    expect(content).toEqual('Côte d\'Ivoire');
+    expect(content).toEqual(TEST_TEXT_1);
     done();
   });
 
   it('should read ISO-8859-1 text correctly', async done => {
     const content = await requestText(`http://localhost:${port}/test2/`);
-    expect(content).toEqual('Côte d\'Ivoire');
+    expect(content).toEqual(TEST_TEXT_1);
     done();
   });
 
   it('should read UTF-16 text (LE, with BOM) correctly', async done => {
     let content = await requestText(`http://localhost:${port}/test3/`);
-    expect(content).toEqual('Hello, world! 🙂');
+    expect(content).toEqual(TEST_TEXT_2);
 
     content = await requestText(`http://localhost:${port}/test3/`, { ignoreBom: true });
-    expect(content).toEqual('\uFEFFHello, world! 🙂');
+    expect(content).toEqual('\uFEFF' + TEST_TEXT_2);
 
     done();
   });
 
   it('should read UTF-16 text correctly when encoding is left out by sender, but specified as default', async done => {
     const content = await requestText(`http://localhost:${port}/test4/`, 'utf-16');
-    expect(content).toBe('Hello, world! 🙂');
+    expect(content).toEqual(TEST_TEXT_2);
     done();
   });
 
   it('should get garbled text when encoding is left out by sender, and the wrong encoding is suggested', async done => {
     const content = await requestText(`http://localhost:${port}/test5/`, 'iso-8859-1');
-    expect(content).toBe('CÃ´te d\'Ivoire');
+    expect(content).toEqual('CÃ´te d\'Ivoire');
     done();
   });
 
   it('should get garbled text when correct encoding is left out by sender, but the wrong encoding is forced', async done => {
     const content = await requestText(`http://localhost:${port}/test1/`, { forceEncoding: true }, 'iso-8859-1');
-    expect(content).toBe('CÃ´te d\'Ivoire');
+    expect(content).toEqual('CÃ´te d\'Ivoire');
     done();
   });
 
@@ -51,7 +49,7 @@ describe('request-text', () => {
       responseInfo: info => responseInfo = info
     });
 
-    expect(content).toEqual('Côte d\'Ivoire');
+    expect(content).toEqual(TEST_TEXT_1);
     expect(responseInfo.bomDetected).toBeTruthy();
     expect(responseInfo.bomRemoved).toBeTruthy();
 
@@ -90,22 +88,55 @@ describe('request-text', () => {
 
     expect(content).toContain('Very large content');
     expect(count > 0).toBeTruthy();
-    expect(bytesRead).toBe(totalBytes);
-    expect(bytesRead).toBe(responseInfo.contentLength);
+    expect(bytesRead).toEqual(totalBytes);
+    expect(bytesRead).toEqual(responseInfo.contentLength);
     expect(responseInfo.charset).toBe('utf8');
     expect(responseInfo.contentEncoding).toBe('gzip');
 
     done();
   });
 
-  it('should throw an exception for an HTTP error', async done => {
-    try {
-      await requestJson(`http://localhost:${port}/doesnt_exist/`);
-      expect(false).toBeTruthy('Exception for HTTP error should have been thrown.');
-    }
-    catch (err) {
-      expect(err).toEqual(NOT_FOUND);
-    }
+  it('should be able to identity various UTF formats according to BOM', async done => {
+    let responseInfo: ResponseInfo = null;
+    let content = await requestText(`http://localhost:${port}/test12/?enc=utf8`, {
+      responseInfo: info => responseInfo = info
+    });
+
+    expect(content).toEqual(TEST_TEXT_3);
+    expect(responseInfo.bomRemoved).toBeTruthy();
+    expect(responseInfo.charset).toEqual('utf8');
+
+    content = await requestText(`http://localhost:${port}/test12/?enc=utf16le`, {
+      responseInfo: info => responseInfo = info
+    });
+
+    expect(content).toEqual(TEST_TEXT_3);
+    expect(responseInfo.bomRemoved).toBeTruthy();
+    expect(responseInfo.charset).toEqual('utf-16le');
+
+    content = await requestText(`http://localhost:${port}/test12/?enc=utf16be`, {
+      responseInfo: info => responseInfo = info
+    });
+
+    expect(content).toEqual(TEST_TEXT_3);
+    expect(responseInfo.bomRemoved).toBeTruthy();
+    expect(responseInfo.charset).toEqual('utf-16be');
+
+    content = await requestText(`http://localhost:${port}/test12/?enc=utf32le`, {
+      responseInfo: info => responseInfo = info
+    });
+
+    expect(content).toEqual(TEST_TEXT_3);
+    expect(responseInfo.bomRemoved).toBeTruthy();
+    expect(responseInfo.charset).toEqual('utf-32le');
+
+    content = await requestText(`http://localhost:${port}/test12/?enc=utf32be`, {
+      responseInfo: info => responseInfo = info
+    });
+
+    expect(content).toEqual(TEST_TEXT_3);
+    expect(responseInfo.bomRemoved).toBeTruthy();
+    expect(responseInfo.charset).toEqual('utf-32be');
 
     done();
   });
