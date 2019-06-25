@@ -33,7 +33,7 @@ export async function requestJson(urlOrOptions: string | ExtendedRequestOptions,
     // Maybe this is JSONP? First, remove any leading comment.
     text = text.replace(/\/\*.*\*\/\s*(?=.*\()/, '');
     // Look for callback
-    const $ = /.*?([A-Za-z$_][0-9A-Za-z$_.]*)\s*\((.*)\)/s.exec(text);
+    const $ = /.*?([A-Za-z$_][0-9A-Za-z$_.]*)\s*\(([^]*)\)/u.exec(text);
 
     if ($) {
       callback = $[1];
