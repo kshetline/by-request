@@ -333,7 +333,7 @@ function lookForEmbeddedEncoding(buffer: Buffer): string {
   // Strip line breaks and comments first
   const tagText = text.replace(/\n+/g, ' ').replace(/<!--.*?-->/g, '').trim();
   // Break into tags
-  const tags = tagText.replace(/[^<]*(<[^>]*>)[^<]*/g, '$1\n').split('\n').filter(tag => !/^<\//.test(tag));
+  const tags = tagText.replace(/[^<]*(<[^>]*>)[^<]*/g, '$1\n').split('\n').filter(tag => !/^<\//u.test(tag));
   let $: string[];
 
   for (const tag of tags) {
