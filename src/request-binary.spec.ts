@@ -1,4 +1,4 @@
-import { assert, expect } from 'chai';
+import { expect } from 'chai';
 import { requestBinary } from './request-binary';
 import { port } from './test-server.spec';
 import * as zlib from 'zlib';
@@ -20,7 +20,7 @@ describe('request-binary', () => {
       unzipped = zlib.gunzipSync(content);
     }
     catch (err) {
-      assert.fail(err);
+      expect(false).to.be.true(err);
     }
 
     expect(unzipped.toString()).to.contain('Very large content');
@@ -30,12 +30,10 @@ describe('request-binary', () => {
     const content = await requestBinary(`http://localhost:${port}/test11/`);
     expect(content.length).equals(8);
 
-    try {
-      await requestBinary(`http://localhost:${port}/test11/?corrupt=true`);
-      assert.fail('Exception failed to be thrown for corrupt data');
-    }
-    catch (err) {
-      expect(err).to.be.true;
-    }
+    return requestBinary(`http://localhost:${port}/test11/?corrupt=true`).then(() =>
+      expect(false).to.be.true('Exception failed to be thrown for corrupt data')
+    ).catch(err =>
+      expect(err).to.be.ok
+    );
   });
 });

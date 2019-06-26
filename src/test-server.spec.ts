@@ -2,6 +2,7 @@ import compression from 'compression';
 import express, { Application, Request, Response } from 'express';
 import iconv from 'ks-iconv-lite';
 import * as zlib from 'zlib';
+import { Server } from 'http';
 
 export const TEST_TEXT_1 = 'Côte d\'Ivoire';
 export const TEST_TEXT_2 = 'Hello, world! 🙂';
@@ -102,8 +103,22 @@ if (!(global as any).testServerStarted) {
     res.send(iconv.encode(TEST_TEXT_3, req.query.enc, { addBOM: true }));
   });
 
-  app.listen(port, () => {
-    console.log(`by-request unit test server listening on ${port}.`);
+  let server: Server;
+
+  before(() => {
+    server = app.listen(port, () => {
+      console.log(`by-request unit test server listening on ${port}.`);
+    });
+  });
+
+  after(() => {
+    if (server) {
+      server.close(() => {
+        server = null;
+        (global as any).testServerStarted = false;
+        console.log('server terminated');
+      });
+    }
   });
 
   app.on('end', () => console.log('server terminated'));

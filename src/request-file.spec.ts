@@ -4,7 +4,8 @@ import { requestFile, wget } from './request-file';
 import { port, TEST_TEXT_1 } from './test-server.spec';
 
 describe('request-file', () => {
-  it('should be able to download a text file', async () => {
+  it('should be able to download a text file', async function() {
+    this.retries(3);
     const path = 'sample.txt';
 
     if (fs.existsSync(path))
@@ -15,7 +16,8 @@ describe('request-file', () => {
     fs.unlinkSync(path);
   });
 
-  it('should be able to download a binary file', async () => {
+  it('should be able to download a binary file', async function() {
+    this.retries(3);
     const path = 'sample.bin';
 
     if (fs.existsSync(path))
