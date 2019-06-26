@@ -8,6 +8,7 @@
     "alwaysStrict": true,
     "noImplicitReturns": true,
     "moduleResolution": "node",
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "declaration": true
   }
 }

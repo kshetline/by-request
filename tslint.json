@@ -69,7 +69,7 @@
     "no-switch-case-fall-through": true,
     "no-trailing-whitespace": true,
     "no-unnecessary-initializer": true,
-    "no-unused-expression": true,
+    "no-unused-expression-chai": true,
     "no-use-before-declare": false,
     "no-var-keyword": true,
     "object-literal-sort-keys": false,
@@ -113,5 +113,8 @@
       "check-separator",
       "check-type"
     ]
-  }
+  },
+  "rulesDirectory": [
+    "tslint-no-unused-expression-chai"
+  ]
 }
