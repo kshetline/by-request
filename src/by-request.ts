@@ -20,7 +20,7 @@ import { RequestOptions } from 'http';
 import zlib from 'zlib';
 import { http, https } from 'follow-redirects';
 import { parse as parseUrl } from 'url';
-import iconv from 'ks-iconv-lite';
+import iconv from 'iconv-lite';
 import { UNSUPPORTED_MEDIA_TYPE } from 'http-status-codes';
 import { Writable } from 'stream';
 
@@ -104,7 +104,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
         let autodetect = !forceEncoding && !binary;
         let bytesRead = 0;
         let bomDetected = false;
-        let bomRemoved = false;
+        let removeBom = false;
 
         if (!options.dontDecompress || !binary) {
           if (contentEncoding === 'gzip') {
@@ -183,11 +183,9 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
           }
 
           if (content.length === 0 && !options.ignoreBom) {
-            const bom = checkBOM(data);
+            const bomCharset = checkBOM(data);
 
-            if (bom) {
-              const [bomLength, bomCharset] = bom.split(':');
-
+            if (bomCharset) {
               if (!forceEncoding) {
                 if (!iconv.encodingExists(bomCharset)) {
                   reject(UNSUPPORTED_MEDIA_TYPE);
@@ -201,10 +199,8 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
 
               bomDetected = true;
 
-              if (!options.keepBom) {
-                data = data.slice(Number(bomLength));
-                bomRemoved = true;
-              }
+              if (!options.keepBom)
+                removeBom = true;
             }
           }
 
@@ -242,7 +238,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
           if (options.responseInfo) {
             options.responseInfo({
               bomDetected,
-              bomRemoved,
+              bomRemoved: removeBom,
               charset: binary ? 'binary' : charset,
               contentEncoding: contentEncoding || 'identity',
               contentLength: bytesRead,
@@ -259,10 +255,19 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
           }
           else if (binary)
             resolve(content);
-          else if (usingIconv)
-            resolve(iconv.decode(content, charset, options.ignoreBom ? { stripBOM: false } : undefined));
-          else
-            resolve(content.toString(charset));
+          else {
+            let text: string;
+
+            if (usingIconv)
+              text = iconv.decode(content, charset, { stripBOM: false });
+            else
+              text = content.toString(charset);
+
+            if (removeBom && text.charCodeAt(0) === 0xFEFF)
+              text = text.substr(1);
+
+            resolve(text);
+          }
         });
       }
       else {
@@ -299,15 +304,18 @@ function checkBOM(buffer: Buffer): string {
   const bom = Array.from(buffer.slice(0, Math.min(buffer.length, 4)));
 
   if (bom[0] === 0x00 && bom[1] === 0x00 && bom[2] === 0xFE && bom[3] === 0xFF)
-    return '4:utf-32be';
+    return 'utf-32be';
   else if (bom[0] === 0xFF && bom[1] === 0xFE && bom[2] === 0x00 && bom[3] === 0x00)
-    return '4:utf-32le';
+    return 'utf-32le';
   else if (bom[0] === 0xFE && bom[1] === 0xFF)
-    return '2:utf-16be';
+    return 'utf-16be';
   else if (bom[0] === 0xFF && bom[1] === 0xFE)
-    return '2:utf-16le';
+    return 'utf-16le';
   else if (bom[0] === 0xEF && bom[1] === 0xBB && bom[2] === 0xBF)
-    return '3:utf8';
+    return 'utf8';
+  else if (bom[0] === 0x2B && bom[1] === 0x2F && bom[2] === 0x76 &&
+           (bom[3] === 0x2B || bom[3] === 0x2F || bom[3] === 0x38 || bom[3] === 0x39))
+    return 'utf7';
 
   return null;
 }
@@ -316,18 +324,14 @@ function lookForEmbeddedEncoding(buffer: Buffer): string {
   // First make sure this isn't likely to be a 16- or 32-bit encoding.
   const start = Array.from(buffer.slice(0, Math.min(buffer.length, 4)));
 
-  if (start[0] === 0 && start[1] === 0 && (start[2] !== 0 || start[3] !== 0)) {
+  if (start[0] === 0 && start[1] === 0 && (start[2] !== 0 || start[3] !== 0))
     return 'utf-32be';
-  }
-  else if ((start[0] !== 0 || start[1] !== 0) && start[2] === 0 && start[3] === 0) {
+  else if ((start[0] !== 0 || start[1] !== 0) && start[2] === 0 && start[3] === 0)
     return 'utf-32le';
-  }
-  else if (start[0] === 0 && start[1] !== 0) {
+  else if (start[0] === 0 && start[1] !== 0)
     return 'utf-16be';
-  }
-  else if (start[0] !== 0 && start[1] === 0) {
+  else if (start[0] !== 0 && start[1] === 0)
     return 'utf-16le';
-  }
 
   const text = buffer.slice(0, Math.min(buffer.length, MAX_EXAMINE)).toString('ascii').toLowerCase().replace('\n', ' ').trim();
   // Strip line breaks and comments first

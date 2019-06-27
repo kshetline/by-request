@@ -1,6 +1,6 @@
 import compression from 'compression';
 import express, { Application, Request, Response } from 'express';
-import iconv from 'ks-iconv-lite';
+import iconv from 'iconv-lite';
 import * as zlib from 'zlib';
 import { Server } from 'http';
 

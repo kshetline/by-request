@@ -86,7 +86,15 @@ describe('request-text', () => {
 
   it('should be able to identity various UTF formats according to BOM', async () => {
     let responseInfo: ResponseInfo = null;
-    let content = await requestText(`http://localhost:${port}/test12/?enc=utf8`, {
+    let content = await requestText(`http://localhost:${port}/test12/?enc=utf7`, {
+      responseInfo: info => responseInfo = info
+    });
+
+    expect(content).equals(TEST_TEXT_3);
+    expect(responseInfo.bomRemoved).to.be.true;
+    expect(responseInfo.charset).equals('utf7');
+
+    content = await requestText(`http://localhost:${port}/test12/?enc=utf8`, {
       responseInfo: info => responseInfo = info
     });
 

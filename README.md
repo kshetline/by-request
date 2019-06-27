@@ -42,7 +42,7 @@ let currentTemperature = parseFloat((await requestText('https://howhotisit.biz/f
       .replace(/.*Current temperature:\s*([-.0-9]+).*/is, '$1'));
 ```
 
-HTTP(S) redirects are automatically handled using [follow-redirects](https://github.com/follow-redirects/follow-redirects), and a wide variety of character encodings are supported using [iconv-lite](https://github.com/ashtuchkin/iconv-lite). _(UTF-32, not currently covered by the current release of iconv-lite, is also supported.)_
+HTTP(S) redirects are automatically handled using [follow-redirects](https://github.com/follow-redirects/follow-redirects), and a wide variety of character encodings are supported using [iconv-lite](https://github.com/ashtuchkin/iconv-lite).
 
 HTTP(S) responses which are compressed using the `gzip`, `deflate` or `br` methods are automatically decompressed. (When using `requestBinary()` or `requestFile()`, this automatic decompression can be disabled.)
 
