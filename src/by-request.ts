@@ -98,7 +98,8 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
         const contentType = (res.headers['content-type'] || '').toLowerCase();
         let contentLength = parseInt(res.headers['content-length'], 10);
         contentLength = (isNaN(contentLength) ? undefined : contentLength);
-        const binary = (encoding === 'binary' || !!options.stream || isBinary(contentType));
+        const binary = (encoding === 'binary' || !!options.stream ||
+          (isBinary(contentType) && (!encoding || !iconv.encodingExists(encoding))));
         let usingIconv = false;
         let charset: string;
         let autodetect = !forceEncoding && !binary;

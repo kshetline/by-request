@@ -25,6 +25,11 @@ if (!(global as any).testServerStarted) {
     res.send(iconv.encode(TEST_TEXT_1, 'iso-8859-1'));
   });
 
+  app.get('/test2a', (req: Request, res: Response) => {
+    res.removeHeader('Content-Type')
+    res.send(iconv.encode(TEST_TEXT_1, 'iso-8859-1'));
+  });
+
   app.get('/test3', (req: Request, res: Response) => {
     res.setHeader('Content-Type', 'text/plain; charset=utf-16le');
     res.send(iconv.encode(TEST_TEXT_2, 'utf-16le', { addBOM: true }));

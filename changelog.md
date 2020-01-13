@@ -1,5 +1,8 @@
 # Change Log
 
+## 1.1.3
+
+* Make sure `requestText` returns string data, even when `Content-Type` isn't specified.
 ## 1.1.2
 
 * Added auto-detection of UTF-7 via BOM.

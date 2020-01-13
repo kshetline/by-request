@@ -13,5 +13,5 @@ export async function requestText(urlOrOptions: string | ExtendedRequestOptions,
   if (optionsOrEncoding && typeof(optionsOrEncoding) !== 'string')
     delete optionsOrEncoding.stream;
 
-  return request(urlOrOptions as any, optionsOrEncoding as any, encoding) as Promise<string>;
+  return request(urlOrOptions as any, optionsOrEncoding as any, encoding || 'ISO-8859-1') as Promise<string>;
 }

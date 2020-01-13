@@ -14,6 +14,12 @@ describe('request-text', () => {
     expect(content).equals(TEST_TEXT_1);
   });
 
+  it('should read text as ISO-8859-1 when Content-Type isn\'t specified', async () => {
+    const content = await requestText(`http://localhost:${port}/test2a/`);
+    expect(typeof content).equals('string');
+    expect(content).equals(TEST_TEXT_1);
+  });
+
   it('should read UTF-16 text (LE, with BOM) correctly', async () => {
     let content = await requestText(`http://localhost:${port}/test3/`);
     expect(content).equals(TEST_TEXT_2);
