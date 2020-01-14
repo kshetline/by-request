@@ -1,8 +1,12 @@
 # Change Log
 
+## 1.1.4
+
+* Use `UTF-8` as encoding for `requestText` when `Content-Type` isn't provided.
+
 ## 1.1.3
 
-* Make sure `requestText` returns string data, even when `Content-Type` isn't specified.
+* Make sure `requestText` returns string data, even when `Content-Type` isn't provided.
 
 ## 1.1.2
 

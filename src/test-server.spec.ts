@@ -26,8 +26,8 @@ if (!(global as any).testServerStarted) {
   });
 
   app.get('/test2a', (req: Request, res: Response) => {
-    res.removeHeader('Content-Type')
-    res.send(iconv.encode(TEST_TEXT_1, 'iso-8859-1'));
+    res.removeHeader('Content-Type');
+    res.send(iconv.encode(TEST_TEXT_1, 'utf-8'));
   });
 
   app.get('/test3', (req: Request, res: Response) => {
@@ -96,7 +96,7 @@ if (!(global as any).testServerStarted) {
     if (corrupt) {
       const data2 = Array.from(zipped);
       zipped[10] = 0;
-      zipped = Buffer.from(data);
+      zipped = Buffer.from(data2);
     }
 
     res.setHeader('Content-Encoding', 'gzip');
