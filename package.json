@@ -1,6 +1,6 @@
 {
   "name": "by-request",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "description": "Simple Node http client for use with promises, async/await.",
   "main": "dist/index.js",
   "typings": "dist/index",
