@@ -94,7 +94,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
   return new Promise<string | Buffer | number>((resolve, reject) => {
     const endStream = !options.dontEndStream && stream !== process.stdout && stream !== process.stderr;
 
-    protocol.get(options, res => {
+    protocol.get(options as any, res => {
       if (200 <= res.statusCode && res.statusCode < 300) {
         let source = res as any;
         const contentEncoding = (res.headers['content-encoding'] || '').toLowerCase();
@@ -265,7 +265,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
             if (usingIconv)
               text = iconv.decode(content, charset, { stripBOM: false });
             else
-              text = content.toString(charset);
+              text = content.toString(charset as BufferEncoding);
 
             if (removeBom && text.charCodeAt(0) === 0xFEFF)
               text = text.substr(1);
