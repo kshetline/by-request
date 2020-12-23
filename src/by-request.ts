@@ -18,16 +18,30 @@
 */
 import { RequestOptions } from 'http';
 import zlib from 'zlib';
-import { http, https } from 'follow-redirects';
+import { FollowOptions, http, https } from 'follow-redirects';
+// eslint-disable-next-line node/no-deprecated-api
 import { parse as parseUrl } from 'url';
 import iconv from 'iconv-lite';
 import { UNSUPPORTED_MEDIA_TYPE } from 'http-status-codes';
 import { Writable } from 'stream';
+import { SecureContextOptions } from 'tls';
 
 const MAX_EXAMINE = 2048;
 
-export interface ExtendedRequestOptions extends RequestOptions {
-  agents?: { http?: typeof http, https?: typeof https };  // follow-redirects
+export interface ResponseInfo {
+  bomDetected: boolean;
+  bomRemoved: boolean;
+  callback?: string;
+  charset: string;
+  contentEncoding: string;
+  contentLength: number;
+  contentType: string;
+  stream: Writable;
+}
+
+type ReqOptions = (RequestOptions & SecureContextOptions & {rejectUnauthorized?: boolean, servername?: string} & FollowOptions<RequestOptions>);
+
+export interface ExtendedRequestOptions extends ReqOptions {
   dontDecompress?: boolean;
   dontEndStream?: boolean;
   followRedirects?: boolean; // follow-redirects
@@ -41,17 +55,6 @@ export interface ExtendedRequestOptions extends RequestOptions {
   stream?: Writable; // For internal use only
   streamCreated?: boolean; // For internal use only
   trackRedirects?: boolean; // follow-redirects
-}
-
-export interface ResponseInfo {
-  bomDetected: boolean;
-  bomRemoved: boolean;
-  callback?: string;
-  charset: string;
-  contentEncoding: string;
-  contentLength: number;
-  contentType: string;
-  stream: Writable;
 }
 
 export async function request(urlOrOptions: string | ExtendedRequestOptions,
@@ -146,7 +149,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
           if (forceEncoding)
             charset = encoding;
           else {
-            const $ = /\bcharset\s*=\s*['"]?\s*([\w\-]+)\b/.exec(contentType);
+            const $ = /\bcharset\s*=\s*['"]?\s*([\w-]+)\b/.exec(contentType);
 
             if ($)
               charset = $[1] === 'utf-8' ? 'utf8' : $[1];
@@ -342,19 +345,19 @@ function lookForEmbeddedEncoding(buffer: Buffer): string {
   let $: string[];
 
   for (const tag of tags) {
-    if (/^<\?xml\b/.test(tag) && ($ = /\bencoding\s*=\s*['"]\s*([\w\-]+)\b/.exec(tag)))
+    if (/^<\?xml\b/.test(tag) && ($ = /\bencoding\s*=\s*['"]\s*([\w-]+)\b/.exec(tag)))
       return $[1];
     else if (/^<meta\b/.test(tag)) {
-      if (($ = /\bcharset\s*=\s*['"]?\s*([\w\-]+)\b/.exec(tag)))
+      if (($ = /\bcharset\s*=\s*['"]?\s*([\w-]+)\b/.exec(tag)))
         return $[1];
       else if (/\bhttp-equiv\s*=\s*['"]?\s*content-type\b/.test(tag) &&
-        ($ = /\bcontent\s*=\s*['"]?.*;\s*charset\s*=\s*([\w\-]+)\b/.exec(tag)))
+        ($ = /\bcontent\s*=\s*['"]?.*;\s*charset\s*=\s*([\w-]+)\b/.exec(tag)))
         return $[1];
     }
   }
 
   // CSS charset must come right at the beginning of a file, so no need to worry about comments confusing the issue.
-  if (($ = /@charset\s+['"]\s*([\w\-]+)\b/.exec(text)))
+  if (($ = /@charset\s+['"]\s*([\w-]+)\b/.exec(text)))
     return $[1];
 
   return null;

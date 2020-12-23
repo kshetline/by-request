@@ -6,10 +6,10 @@ export async function requestFile(urlOrOptions: string | ExtendedRequestOptions,
                                   optionsOrPathOrStream?: ExtendedRequestOptions | string | Writable,
                                   pathOrStream?: string | Writable): Promise<number> {
   // Stream should only be specified directly as a function argument, not as an option within an argument.
-  if (urlOrOptions && typeof(urlOrOptions) !== 'string')
+  if (urlOrOptions && typeof urlOrOptions !== 'string')
     delete urlOrOptions.stream;
 
-  if (optionsOrPathOrStream && typeof(optionsOrPathOrStream) !== 'string' && !(optionsOrPathOrStream as any).write)
+  if (optionsOrPathOrStream && typeof optionsOrPathOrStream !== 'string' && !(optionsOrPathOrStream as any).write)
     delete (optionsOrPathOrStream as any).stream;
 
   let url: string;
@@ -52,7 +52,7 @@ export async function requestFile(urlOrOptions: string | ExtendedRequestOptions,
     stream = createWriteStream(path);
     options.streamCreated = true;
 
-    await new Promise((resolve, reject) => {
+    await new Promise<void>((resolve, reject) => {
       stream.on('open', () => resolve());
       stream.on('error', error => reject(error));
     });
@@ -60,6 +60,7 @@ export async function requestFile(urlOrOptions: string | ExtendedRequestOptions,
 
   options.stream = stream;
 
+  // noinspection ES6MissingAwait
   return request(url || options, url ? options : undefined, 'binary') as Promise<number>;
 }
 

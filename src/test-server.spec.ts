@@ -105,7 +105,7 @@ if (!(global as any).testServerStarted) {
 
   app.get('/test12', (req: Request, res: Response) => {
     res.setHeader('Content-Type', 'text/plain');
-    res.send(iconv.encode(TEST_TEXT_3, req.query.enc, { addBOM: true }));
+    res.send(iconv.encode(TEST_TEXT_3, req.query.enc as string, { addBOM: true }));
   });
 
   let server: Server;

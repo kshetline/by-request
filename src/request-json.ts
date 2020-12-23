@@ -3,7 +3,7 @@ import { requestText } from './request-text';
 
 export async function requestJson(urlOrOptions: string | ExtendedRequestOptions,
                                   options?: ExtendedRequestOptions): Promise<any> {
-  if (urlOrOptions && typeof(urlOrOptions) !== 'string')
+  if (urlOrOptions && typeof urlOrOptions !== 'string')
     delete urlOrOptions.stream;
 
   if (options)
@@ -14,7 +14,7 @@ export async function requestJson(urlOrOptions: string | ExtendedRequestOptions,
   let responseInfo: ResponseInfo = null;
 
   if (savedInfoCallback)
-    actualOptions.responseInfo = (info => responseInfo = info);
+    actualOptions.responseInfo = info => responseInfo = info;
 
   let text = await requestText(urlOrOptions as any, options, 'utf8');
   let json: any;
