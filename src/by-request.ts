@@ -25,6 +25,7 @@ import iconv from 'iconv-lite';
 import { UNSUPPORTED_MEDIA_TYPE } from 'http-status-codes';
 import { Writable } from 'stream';
 import { SecureContextOptions } from 'tls';
+import { processMillis } from '@tubular/util';
 
 const MAX_EXAMINE = 2048;
 
@@ -90,6 +91,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
 
   const protocol = (options.protocol === 'https:' ? https : http);
   const stream = options.stream;
+  const startTime = processMillis();
 
   return new Promise<string | Buffer | number>((resolve, reject) => {
     const endStream = !options.dontEndStream && stream !== process.stdout && stream !== process.stderr;
@@ -282,7 +284,10 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
       }
     }).on('error', err => reject(err));
 
-    req.on('timeout', () => req.abort());
+    req.on('timeout', () => {
+      req.abort();
+      reject(new Error(`HTTP timeout after ${processMillis() - startTime} msec`));
+    });
   });
 }
 
