@@ -286,7 +286,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
 
     req.on('timeout', () => {
       req.abort();
-      reject(new Error(`HTTP timeout after ${processMillis() - startTime} msec`));
+      reject(new Error(`HTTP timeout after ${Math.round(processMillis() - startTime)} msec`));
     });
   });
 }
