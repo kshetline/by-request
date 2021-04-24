@@ -1,5 +1,10 @@
 # Change Log
 
+## 1.2.1
+
+* Fix handling of timeouts.
+* Update dependencies.
+
 ## 1.1.4
 
 * Use `UTF-8` as encoding for `requestText` when `Content-Type` isn't provided.

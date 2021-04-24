@@ -94,7 +94,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
   return new Promise<string | Buffer | number>((resolve, reject) => {
     const endStream = !options.dontEndStream && stream !== process.stdout && stream !== process.stderr;
 
-    protocol.get(options as any, res => {
+    const req = protocol.get(options as any, res => {
       if (200 <= res.statusCode && res.statusCode < 300) {
         let source = res as any;
         const contentEncoding = (res.headers['content-encoding'] || '').toLowerCase();
@@ -281,6 +281,8 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
         reject(res.statusCode);
       }
     }).on('error', err => reject(err));
+
+    req.on('timeout', () => req.abort());
   });
 }
 
