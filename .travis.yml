@@ -3,4 +3,4 @@ node_js:
   - "8"
   - "10"
   - "node"
-script: npm run test-once
+script: npm run test
