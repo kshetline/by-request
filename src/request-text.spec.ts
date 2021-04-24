@@ -1,7 +1,10 @@
 import { ResponseInfo } from './by-request';
-import { expect } from 'chai';
+import chai, { expect } from 'chai';
 import { requestText } from './request-text';
 import { port, TEST_TEXT_1, TEST_TEXT_2, TEST_TEXT_3 } from './test-server.spec';
+import chaiAsPromised from 'chai-as-promised';
+
+chai.use(chaiAsPromised);
 
 describe('request-text', () => {
   it('should read UTF-8 text correctly', async () => {
@@ -139,5 +142,11 @@ describe('request-text', () => {
     expect(content).equals(TEST_TEXT_3);
     expect(responseInfo.bomRemoved).to.be.true;
     expect(responseInfo.charset).equals('utf-32be');
+  });
+
+  it('should handle timeout correctly', async function () {
+    this.timeout(15000);
+    this.slow(10000);
+    await expect(requestText('http://httpstat.us/522?sleep=6000', { timeout: 3000 })).to.eventually.be.rejected;
   });
 });
