@@ -1,5 +1,5 @@
 /*
-  Copyright © 2019 Kerry Shetline, kerry@shetline.com
+  Copyright © 2019-2021 Kerry Shetline, kerry@shetline.com
 
   MIT license: https://opensource.org/licenses/MIT
 
@@ -25,7 +25,7 @@ import iconv from 'iconv-lite';
 import { UNSUPPORTED_MEDIA_TYPE } from 'http-status-codes';
 import { Writable } from 'stream';
 import { SecureContextOptions } from 'tls';
-import { processMillis } from '@tubular/util';
+import { clone, processMillis } from '@tubular/util';
 
 const MAX_EXAMINE = 2048;
 
@@ -43,6 +43,7 @@ export interface ResponseInfo {
 type ReqOptions = (RequestOptions & SecureContextOptions & {rejectUnauthorized?: boolean, servername?: string} & FollowOptions<RequestOptions>);
 
 export interface ExtendedRequestOptions extends ReqOptions {
+  autoDecompress?: boolean;
   dontDecompress?: boolean;
   dontEndStream?: boolean;
   followRedirects?: boolean; // follow-redirects
@@ -71,7 +72,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
     if (options)
       Object.assign(options, optionsOrEncoding);
     else
-      options = optionsOrEncoding;
+      options = clone(optionsOrEncoding);
   }
   else if (!options)
     options = urlOrOptions as ExtendedRequestOptions;
@@ -113,11 +114,11 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
         let removeBom = false;
 
         if (!options.dontDecompress || !binary) {
-          if (contentEncoding === 'gzip') {
+          if (contentEncoding === 'gzip' || (options.autoDecompress && /\b(gzip|gzipped|gunzip)\b/.test(contentType))) {
             source = zlib.createGunzip();
             res.pipe(source);
           }
-          else if (contentEncoding === 'deflate') {
+          else if (contentEncoding === 'deflate' || (options.autoDecompress && /\bdeflate\b/.test(contentType))) {
             source = zlib.createInflate();
             res.pipe(source);
           }
@@ -188,7 +189,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
               options.progress(bytesRead, contentLength);
           }
 
-          if (content.length === 0 && !options.ignoreBom) {
+          if (content.length === 0 && !binary && !options.ignoreBom) {
             const bomCharset = checkBOM(data);
 
             if (bomCharset) {
