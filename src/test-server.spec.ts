@@ -89,6 +89,7 @@ if (!(global as any).testServerStarted) {
 
   app.get('/test11', (req: Request, res: Response) => {
     const corrupt = !!req.query.corrupt;
+    const asGzip = !!req.query.asgzip;
     const data = [0, 1, 2, 3, 4, 5, 6, 7];
     const content = Buffer.from(data);
     let zipped = zlib.gzipSync(content);
@@ -99,7 +100,11 @@ if (!(global as any).testServerStarted) {
       zipped = Buffer.from(data2);
     }
 
-    res.setHeader('Content-Encoding', 'gzip');
+    if (asGzip)
+      res.setHeader('Content-Type', 'application/x-gzip');
+    else
+      res.setHeader('Content-Encoding', 'gzip');
+
     res.send(zipped);
   });
 

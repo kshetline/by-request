@@ -36,4 +36,11 @@ describe('request-binary', () => {
       expect(err).to.be.ok
     );
   });
+
+  it('should be able to auto-gunzip gzipped content type', async () => {
+    const content = await requestBinary(`http://localhost:${port}/test11/?asgzip=true`, { autoDecompress: true });
+    let unzipped = Buffer.alloc(0);
+
+    expect(content.length).equals(8);
+  });
 });
