@@ -1,5 +1,13 @@
 # Change Log
 
+## 1.2.5
+
+* Restored ability to handle streams marked as gzip or deflate by ContentType rather than by ContentEncoding.
+
+## 1.2.4
+
+* Update dependencies.
+
 ## 1.2.3
 
 * Fix handling of timeouts.
