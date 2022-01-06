@@ -22,10 +22,11 @@ import { FollowOptions, http, https } from 'follow-redirects';
 // eslint-disable-next-line node/no-deprecated-api
 import { parse as parseUrl } from 'url';
 import iconv from 'iconv-lite';
-import { UNSUPPORTED_MEDIA_TYPE } from 'http-status-codes';
+import { StatusCodes } from 'http-status-codes';
 import { Writable } from 'stream';
 import { SecureContextOptions } from 'tls';
-import { clone, processMillis } from '@tubular/util';
+import { clone, isString, processMillis } from '@tubular/util';
+import { spawn } from 'child_process';
 
 const MAX_EXAMINE = 2048;
 
@@ -44,6 +45,7 @@ type ReqOptions = (RequestOptions & SecureContextOptions & {rejectUnauthorized?:
 
 export interface ExtendedRequestOptions extends ReqOptions {
   autoDecompress?: boolean;
+  body?: Buffer | string;
   dontDecompress?: boolean;
   dontEndStream?: boolean;
   followRedirects?: boolean; // follow-redirects
@@ -58,6 +60,9 @@ export interface ExtendedRequestOptions extends ReqOptions {
   streamCreated?: boolean; // For internal use only
   trackRedirects?: boolean; // follow-redirects
 }
+
+let checkedGzipShell = false;
+let hasGzipShell = false;
 
 export async function request(urlOrOptions: string | ExtendedRequestOptions,
                        optionsOrEncoding?: ExtendedRequestOptions | string, encoding?: string): Promise<string | Buffer | number> {
@@ -90,9 +95,23 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
     forceEncoding = false;
   }
 
+  options.method = options.method || 'GET';
+
   const protocol = (options.protocol === 'https:' ? https : http);
   const stream = options.stream;
   const startTime = processMillis();
+
+  if (!checkedGzipShell) {
+    checkedGzipShell = true;
+    hasGzipShell = true;
+
+    const gzipProc = spawn('gzip', ['-L']);
+
+    await new Promise<void>(resolve => {
+      gzipProc.once('error', () => { hasGzipShell = false; resolve(); });
+      gzipProc.stdout.once('end', resolve);
+    });
+  }
 
   return new Promise<string | Buffer | number>((resolve, reject) => {
     const endStream = !options.dontEndStream && stream !== process.stdout && stream !== process.stderr;
@@ -114,9 +133,19 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
         let removeBom = false;
 
         if (!options.dontDecompress || !binary) {
-          if (contentEncoding === 'gzip' || (options.autoDecompress && /\b(gzip|gzipped|gunzip)\b/.test(contentType))) {
-            source = zlib.createGunzip();
-            res.pipe(source);
+          if (contentEncoding === 'gzip' || contentEncoding === 'x-gzip' ||
+              (options.autoDecompress && /\b(gzip|gzipped|gunzip)\b/.test(contentType))) {
+            if (hasGzipShell) {
+              const gzipProc = spawn('gzip', ['-dc']);
+
+              source = gzipProc.stdout;
+              res.pipe(gzipProc.stdin);
+              gzipProc.once('error', err => reject(err));
+            }
+            else {
+              source = zlib.createGunzip();
+              res.pipe(source);
+            }
           }
           else if (contentEncoding === 'deflate' || (options.autoDecompress && /\bdeflate\b/.test(contentType))) {
             source = zlib.createInflate();
@@ -127,13 +156,13 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
             res.pipe(source);
           }
           else if (contentEncoding && contentEncoding !== 'identity') {
-            reject(UNSUPPORTED_MEDIA_TYPE);
+            reject(StatusCodes.UNSUPPORTED_MEDIA_TYPE);
             return;
           }
         }
 
         if (res !== source) {
-          res.on('error', error => {
+          res.once('error', error => {
             if (stream && (endStream || options.streamCreated))
               stream.end();
 
@@ -164,7 +193,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
 
           if (!/^(ascii|utf8|utf16le|ucs2|base64|binary|hex)$/.test(charset)) {
             if (!iconv.encodingExists(charset)) {
-              reject(UNSUPPORTED_MEDIA_TYPE);
+              reject(StatusCodes.UNSUPPORTED_MEDIA_TYPE);
               return;
             }
 
@@ -174,7 +203,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
 
         let content = Buffer.alloc(0);
 
-        source.on('error', (error: any) => {
+        source.once('error', (error: any) => {
           if (stream && (endStream || options.streamCreated))
             stream.end();
 
@@ -195,7 +224,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
             if (bomCharset) {
               if (!forceEncoding) {
                 if (!iconv.encodingExists(bomCharset)) {
-                  reject(UNSUPPORTED_MEDIA_TYPE);
+                  reject(StatusCodes.UNSUPPORTED_MEDIA_TYPE);
                   return;
                 }
 
@@ -216,7 +245,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
 
             if (embeddedEncoding) {
               if (!iconv.encodingExists(embeddedEncoding)) {
-                reject(UNSUPPORTED_MEDIA_TYPE);
+                reject(StatusCodes.UNSUPPORTED_MEDIA_TYPE);
                 return;
               }
 
@@ -238,7 +267,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
             content = Buffer.concat([content, data], content.length + data.length);
         });
 
-        source.on('end', () => {
+        source.once('end', () => {
           if (options.progress && contentLength === undefined)
             options.progress(bytesRead, bytesRead);
 
@@ -283,12 +312,23 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
 
         reject(res.statusCode);
       }
-    }).on('error', err => reject(err));
+    }).once('error', err => reject(err));
 
-    req.on('timeout', () => {
+    req.once('timeout', () => {
       req.abort();
       reject(new Error(`HTTP timeout after ${Math.round(processMillis() - startTime)} msec`));
     });
+
+    if (options.body) {
+      req.write(isString(options.body) ? Buffer.from(options.body, encoding as BufferEncoding) : options.body, err => {
+        if (err)
+          reject(err);
+        else
+          req.end();
+      });
+    }
+    else
+      req.end();
   });
 }
 
