@@ -17,10 +17,10 @@ The **by-request** package provides four ways to retrieve data via HTTP/HTTPS, a
 
 ### Examples
 
-```
+```typescript
 const audio = await requestBinary('https://musicalstuff.net/some_song.mp3');
 ```
-```
+```typescript
 const options = {progress: (bytesRead, totalBytes) => {
   if (totalBytes)
     console.log((bytesRead / totalBytes * 100).toFixed(1) + '% downloaded');
@@ -34,10 +34,10 @@ requestFile('https://tedious.org/2014/07/meeting_minutes.docx', options, 'docume
   console.error('Something went wrong: ' + err.message);
 });
 ```
-```
+```typescript
 let whereAmI = await requestJson('http://ip-api.com/json/');
 ```
-```
+```typescript
 let currentTemperature = parseFloat((await requestText('https://howhotisit.biz/forecast/?zip=02134'))
       .replace(/.*Current temperature:\s*([-.0-9]+).*/is, '$1'));
 ```
@@ -50,7 +50,7 @@ URLs can be specified either as strings or via an `ExtendedRequestOptions` objec
 
 `ExtendedRequestOptions` is an extension of the standard Node [`RequestOptions`](https://nodejs.org/api/http.html#http_http_request_options_callback) object. Those options have been extended as follows:
 
-```
+```typescript
 interface ExtendedRequestOptions extends RequestOptions {
   agents?: { http?: typeof http, https?: typeof https };  // follow-redirects
   dontDecompress?: boolean;
@@ -77,7 +77,7 @@ The other options are as follows:
 * `keepBom`: If a BOM is detected by `requestJson()` or `requestText()`, it is normally deleted. Set `keepBom` to `true` to preserve the BOM.
 * `progress`: As seen in the `requestFile()` example at the beginning of this document, this is an optional callback that provides feedback during the retrieval of large resources, returning the number of bytes read at a particular point in time, and, if known (otherwise `undefined`), the total number of bytes expected.
 * `responseInfo`: This optional callback provides meta-information about the resource which has been retrieved and the retrieval process. The data provided looks like this:
-```
+```typescript
 interface ResponseInfo {
   bomDetected: boolean;
   bomRemoved: boolean;
@@ -103,7 +103,7 @@ interface ResponseInfo {
 
 #### `requestBinary(`...`)`
 
-```
+```typescript
 async function requestBinary(urlOrOptions: string | ExtendedRequestOptions,
                              options?: ExtendedRequestOptions): Promise<Buffer>
 ```
@@ -111,7 +111,7 @@ async function requestBinary(urlOrOptions: string | ExtendedRequestOptions,
 Gets binary data as a `Buffer`. Apart from decompression (which can be optionally disabled), data is retrieved as sent, with no character encoding transformations performed.
 
 #### `requestFile(`...`)` (or `wget(`...`)`)
-```
+```typescript
 async function requestFile(urlOrOptions: string | ExtendedRequestOptions,
                            optionsOrPathOrStream?: ExtendedRequestOptions | string | Writable,
                            pathOrStream?: string | Writable): Promise<number>
@@ -123,7 +123,7 @@ If a path string is specified that does not end in a slash (`/`), that path is u
 If no path (or `Writable` stream) is specified, only a URL, the file name is extracted from the end of the URL, and the file is created in the current working directory.
 
 #### `requestJson(`...`)`
-```
+```typescript
 async function requestJson(urlOrOptions: string | ExtendedRequestOptions,
                            options?: ExtendedRequestOptions): Promise<any>
 ```
@@ -132,7 +132,7 @@ Gets JSON or JSONP data, returning it as whatever data type is applicable. If JS
 Since JSON is now almost universally encoded using UTF-8, no encoding parameter is provided for this function, and the retrieved data will be decoded by something other than UTF-8 only if the HTTP `Content-Type` header, or a BOM marker, indicate otherwise. Should the odd case arise where you need to force the use of a different encoding, use `requestText()` instead, along with `JSON.parse()`.
 
 #### `requestText(`...`)`
-```
+```typescript
 async function requestText(urlOrOptions: string | ExtendedRequestOptions, encoding?: string): Promise<string>
 
 async function requestText(url: string, options: ExtendedRequestOptions, encoding?: string): Promise<string>

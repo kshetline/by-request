@@ -7,3 +7,4 @@
 *.js.map
 *.spec.d.ts
 *.spec.js
+/cache

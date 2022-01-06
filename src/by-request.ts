@@ -27,6 +27,9 @@ import { Writable } from 'stream';
 import { SecureContextOptions } from 'tls';
 import { clone, isString, processMillis } from '@tubular/util';
 import { spawn } from 'child_process';
+import { StatOptions, Stats } from 'fs';
+import { mkdir, readFile, stat, writeFile } from 'fs/promises';
+import * as pathUtil from 'path';
 
 const MAX_EXAMINE = 2048;
 
@@ -46,6 +49,7 @@ type ReqOptions = (RequestOptions & SecureContextOptions & {rejectUnauthorized?:
 export interface ExtendedRequestOptions extends ReqOptions {
   autoDecompress?: boolean;
   body?: Buffer | string;
+  cachePath?: string;
   dontDecompress?: boolean;
   dontEndStream?: boolean;
   followRedirects?: boolean; // follow-redirects
@@ -61,18 +65,48 @@ export interface ExtendedRequestOptions extends ReqOptions {
   trackRedirects?: boolean; // follow-redirects
 }
 
+async function safeStat(path: string, opts?: StatOptions & { bigint?: false }): Promise<Stats> {
+  try {
+    return await stat(path, opts);
+  }
+  catch {
+    return null;
+  }
+}
+
+async function ensureDirectory(path: string): Promise<void> {
+  const parent = pathUtil.dirname(path);
+
+  if (parent)
+    await mkdir(parent, { recursive: true });
+}
+
+function getCaseInsensitiveProperty(obj: any, key: string) {
+  key = key.toLowerCase();
+
+  for (const k of Object.keys(obj || {})) {
+    if (isString(k) && k.toLowerCase() === key)
+      return obj[k];
+  }
+
+  return undefined;
+}
+
 let checkedGzipShell = false;
 let hasGzipShell = false;
 
 export async function request(urlOrOptions: string | ExtendedRequestOptions,
-                       optionsOrEncoding?: ExtendedRequestOptions | string, encoding?: string): Promise<string | Buffer | number> {
+                       optionsOrEncoding?: ExtendedRequestOptions | string, anEncoding?: string): Promise<string | Buffer | number> {
   let options: ExtendedRequestOptions;
+  let body: Buffer | string;
+  let cachePath: string;
+  let encoding = anEncoding as BufferEncoding;
 
   if (typeof urlOrOptions === 'string')
     options = parseUrl(urlOrOptions);
 
   if (typeof optionsOrEncoding === 'string')
-    encoding = optionsOrEncoding;
+    encoding = optionsOrEncoding as BufferEncoding;
   else if (optionsOrEncoding) {
     if (options)
       Object.assign(options, optionsOrEncoding);
@@ -83,9 +117,9 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
     options = urlOrOptions as ExtendedRequestOptions;
 
   if (!options.headers)
-    options.headers = { 'accept-encoding': 'gzip, deflate, br' };
-  else if (!options.headers['accept-encoding'])
-    options.headers['accept-encoding'] = 'gzip, deflate, br';
+    options.headers = { 'Accept-Encoding': 'gzip, deflate, br' };
+  else if (!getCaseInsensitiveProperty(options.headers, 'accept-encoding'))
+    options.headers['Accept-Encoding'] = 'gzip, deflate, br';
 
   let forceEncoding = options.forceEncoding;
 
@@ -96,6 +130,16 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
   }
 
   options.method = options.method || 'GET';
+
+  if (options.body) {
+    body = options.body;
+    delete options.body;
+  }
+
+  if (options.cachePath) {
+    cachePath = options.cachePath;
+    delete options.cachePath;
+  }
 
   const protocol = (options.protocol === 'https:' ? https : http);
   const stream = options.stream;
@@ -111,6 +155,19 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
       gzipProc.once('error', () => { hasGzipShell = false; resolve(); });
       gzipProc.stdout.once('end', resolve);
     });
+  }
+
+  let canUseCache = false;
+
+  if (cachePath) {
+    const stats = await safeStat(cachePath);
+
+    if (stats) {
+      canUseCache = true;
+
+      if (!getCaseInsensitiveProperty(options?.headers, 'If-Modified-Since'))
+        options.headers = Object.assign(options.headers ?? {}, { 'If-Modified-Since': stats.mtime.toUTCString() });
+    }
   }
 
   return new Promise<string | Buffer | number>((resolve, reject) => {
@@ -289,8 +346,12 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
 
             resolve(bytesRead);
           }
-          else if (binary)
-            resolve(content);
+          else if (binary) {
+            if (cachePath)
+              ensureDirectory(cachePath).then(() => writeFile(cachePath, content).finally(() => resolve(content)));
+            else
+              resolve(content);
+          }
           else {
             let text: string;
 
@@ -302,7 +363,10 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
             if (removeBom && text.charCodeAt(0) === 0xFEFF)
               text = text.substr(1);
 
-            resolve(text);
+            if (cachePath)
+              ensureDirectory(cachePath).then(() => writeFile(cachePath, text, { encoding }).finally(() => resolve(content)));
+            else
+              resolve(text);
           }
         });
       }
@@ -310,17 +374,25 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
         if (stream && (endStream || options.streamCreated))
           stream.end();
 
+      if (canUseCache && res.statusCode === 304)
+        readFile(cachePath, { encoding }).then(content => resolve(content)).catch(err => reject(err));
+      else
         reject(res.statusCode);
       }
-    }).once('error', err => reject(err));
+    }).once('error', err => {
+      if (canUseCache && err.toString().match(/\b304\b/))
+        readFile(cachePath, { encoding }).then(content => resolve(content)).catch(err => reject(err));
+      else
+        reject(err);
+    });
 
     req.once('timeout', () => {
       req.abort();
       reject(new Error(`HTTP timeout after ${Math.round(processMillis() - startTime)} msec`));
     });
 
-    if (options.body) {
-      req.write(isString(options.body) ? Buffer.from(options.body, encoding as BufferEncoding) : options.body, err => {
+    if (body) {
+      req.write(isString(body) ? Buffer.from(body, encoding) : body, err => {
         if (err)
           reject(err);
         else
