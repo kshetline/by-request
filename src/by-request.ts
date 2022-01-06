@@ -28,8 +28,9 @@ import { SecureContextOptions } from 'tls';
 import { clone, isString, processMillis } from '@tubular/util';
 import { spawn } from 'child_process';
 import { StatOptions, Stats } from 'fs';
-import { mkdir, readFile, stat, writeFile } from 'fs/promises';
 import * as pathUtil from 'path';
+// import { mkdir, readFile, stat, writeFile } from 'fs/promises'; // Would prefer this syntax, but requires Node 14+
+const { mkdir, readFile, stat, writeFile } = require('fs').promises;
 
 const MAX_EXAMINE = 2048;
 
@@ -375,13 +376,13 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
           stream.end();
 
       if (canUseCache && res.statusCode === 304)
-        readFile(cachePath, { encoding }).then(content => resolve(content)).catch(err => reject(err));
+        readFile(cachePath, { encoding }).then((content: any) => resolve(content)).catch((err: any) => reject(err));
       else
         reject(res.statusCode);
       }
     }).once('error', err => {
       if (canUseCache && err.toString().match(/\b304\b/))
-        readFile(cachePath, { encoding }).then(content => resolve(content)).catch(err => reject(err));
+        readFile(cachePath, { encoding }).then((content: any) => resolve(content)).catch((err: any) => reject(err));
       else
         reject(err);
     });
