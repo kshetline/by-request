@@ -18,7 +18,7 @@
     "url": "https://github.com/kshetline/by-request.git"
   },
   "engines": {
-    "node": ">=6.5.0"
+    "node": ">=10.17"
   },
   "keywords": [
     "http",
