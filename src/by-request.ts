@@ -1,5 +1,5 @@
 /*
-  Copyright © 2019-2021 Kerry Shetline, kerry@shetline.com
+  Copyright © 2019-2022 Kerry Shetline, kerry@shetline.com
 
   MIT license: https://opensource.org/licenses/MIT
 
@@ -93,6 +93,16 @@ function getCaseInsensitiveProperty(obj: any, key: string) {
   return undefined;
 }
 
+function isValidJson(s: string): boolean {
+  try {
+    JSON.parse(s);
+    return true;
+  }
+  catch {}
+
+  return false;
+}
+
 let checkedGzipShell = false;
 let hasGzipShell = false;
 
@@ -102,6 +112,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
   let body: Buffer | string;
   let cachePath: string;
   let encoding = anEncoding as BufferEncoding;
+  let charset = 'utf-8' as BufferEncoding;
 
   if (typeof urlOrOptions === 'string')
     options = parseUrl(urlOrOptions);
@@ -130,11 +141,28 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
     forceEncoding = false;
   }
 
-  options.method = options.method || 'GET';
+  options.method = options.method || (options.body ? 'POST' : 'GET');
 
   if (options.body) {
     body = options.body;
     delete options.body;
+
+    const contentType = getCaseInsensitiveProperty(options.headers, 'content-type');
+    let $: RegExpExecArray;
+
+    if (!contentType) {
+      let contentType = 'text/plain';
+      const bodyText = isString(body) ? body : body.toString('utf8');
+
+      if (isValidJson(bodyText))
+        contentType = 'application/json';
+      else if (/\s*[a-z][-._~a-z0-9]*=\S+?&/i.test(bodyText))
+        contentType = 'application/x-www-form-urlencoded';
+
+      options.headers['Content-Type'] = contentType;
+    }
+    else if (($ = /\bcharset\s*=\s*[\S]+\s*$/i.exec(contentType)))
+      charset = $[1].toLowerCase() as BufferEncoding;
   }
 
   if (options.cachePath) {
@@ -174,7 +202,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
   return new Promise<string | Buffer | number>((resolve, reject) => {
     const endStream = !options.dontEndStream && stream !== process.stdout && stream !== process.stderr;
 
-    const req = protocol.get(options as any, res => {
+    const req = protocol.request(options as any, res => {
       if (200 <= res.statusCode && res.statusCode < 300) {
         let source = res as any;
         const contentEncoding = (res.headers['content-encoding'] || '').toLowerCase();
@@ -393,7 +421,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
     });
 
     if (body) {
-      req.write(isString(body) ? Buffer.from(body, encoding) : body, err => {
+      req.write(isString(body) ? Buffer.from(body, charset) : body, err => {
         if (err)
           reject(err);
         else

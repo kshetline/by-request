@@ -1,6 +1,7 @@
 import chai, { expect } from 'chai';
 import { request } from './by-request';
 import chaiAsPromised from 'chai-as-promised';
+import { port } from './test-server.spec';
 // import { stat, unlink, writeFile } from 'fs/promises'; // Would prefer this syntax, but requires Node 14+
 const { stat, unlink, writeFile } = require('fs').promises;
 
@@ -40,5 +41,28 @@ describe('by-request', () => {
       await unlink(path);
     }
     catch {}
+  });
+
+  it('should be able request using POST', async () => {
+    let content = await request(`http://localhost:${port}/test13`, {
+      body: JSON.stringify({ do: 77, re: 'abc', mi: true, so: 'ignored' })
+    });
+    expect(content.toString()).to.equal('77,abc,true');
+
+    content = await request(`http://localhost:${port}/test13`, {
+      body: 'do=55&re=a+b&mi=%3Ac'
+    });
+    expect(content.toString()).to.equal('55,a b,:c');
+
+    content = await request(`http://localhost:${port}/test13`, {
+      body: 'do=55&re=a+b&mi=%3Ac',
+      headers: { 'content-type': 'text/plain' }
+    });
+    expect(content.toString()).to.equal('do=55&re=a+b&mi=%3Ac');
+
+    content = await request(`http://localhost:${port}/test13`, {
+      body: 'echo this'
+    });
+    expect(content.toString()).to.equal('echo this');
   });
 });

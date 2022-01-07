@@ -3,6 +3,8 @@ import express, { Application, Request, Response } from 'express';
 import iconv from 'iconv-lite';
 import * as zlib from 'zlib';
 import { Server } from 'http';
+import * as bodyParser from 'body-parser';
+import { isString } from '@tubular/util';
 
 export const TEST_TEXT_1 = 'Côte d\'Ivoire';
 export const TEST_TEXT_2 = 'Hello, world! 🙂';
@@ -14,6 +16,9 @@ if (!(global as any).testServerStarted) {
   (global as any).testServerStarted = true;
   const app: Application = express();
 
+  app.use(bodyParser.json());
+  app.use(bodyParser.text());
+  app.use(bodyParser.urlencoded({ extended: false }));
   app.use(compression());
 
   app.get('/test1', (req: Request, res: Response) => {
@@ -111,6 +116,18 @@ if (!(global as any).testServerStarted) {
   app.get('/test12', (req: Request, res: Response) => {
     res.setHeader('Content-Type', 'text/plain');
     res.send(iconv.encode(TEST_TEXT_3, req.query.enc?.toString(), { addBOM: true }));
+  });
+
+  app.post('/test13', (req: Request, res: Response) => {
+    let response = '?';
+
+    if (isString(req.body))
+      response = req.body;
+    else if (req.body)
+      response = [req.body.do, req.body.re, req.body.mi].join();
+
+    res.setHeader('Content-Type', 'text/plain');
+    res.send(response);
   });
 
   let server: Server;
