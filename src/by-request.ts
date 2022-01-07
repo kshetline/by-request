@@ -25,24 +25,25 @@ import iconv from 'iconv-lite';
 import { StatusCodes } from 'http-status-codes';
 import { Writable } from 'stream';
 import { SecureContextOptions } from 'tls';
-import { clone, isString, processMillis, urlEncodeParams } from '@tubular/util';
+import { clone, isString, makePlainASCII, processMillis, urlEncodeParams } from '@tubular/util';
 import { spawn } from 'child_process';
 import { StatOptions, Stats } from 'fs';
 import * as pathUtil from 'path';
-// import { mkdir, readFile, stat, writeFile } from 'fs/promises'; // Would prefer this syntax, but requires Node 14+
-const { mkdir, readFile, stat, writeFile } = require('fs').promises;
+// import { lstat, mkdir, readFile, writeFile } from 'fs/promises'; // Would prefer this syntax, but requires Node 14+
+const { lstat, mkdir, readFile, writeFile } = require('fs').promises;
 
 const MAX_EXAMINE = 2048;
 
 export interface ResponseInfo {
-  bomDetected: boolean;
-  bomRemoved: boolean;
+  bomDetected?: boolean;
+  bomRemoved?: boolean;
+  cachePath?: string;
   callback?: string;
-  charset: string;
-  contentEncoding: string;
-  contentLength: number;
-  contentType: string;
-  stream: Writable;
+  charset?: string;
+  contentEncoding?: string;
+  contentLength?: number;
+  contentType?: string;
+  stream?: Writable;
 }
 
 type ReqOptions = (RequestOptions & SecureContextOptions & {rejectUnauthorized?: boolean, servername?: string} & FollowOptions<RequestOptions>);
@@ -59,6 +60,7 @@ export interface ExtendedRequestOptions extends ReqOptions {
   json?: any;
   keepBom?: boolean;
   maxBodyLength?: number; // follow-redirects
+  maxCacheAge?: number;
   maxRedirects?: number; // follow-redirects
   params?: any;
   progress?: (bytesRead: number, totalBytes: number | undefined) => void;
@@ -68,9 +70,9 @@ export interface ExtendedRequestOptions extends ReqOptions {
   trackRedirects?: boolean; // follow-redirects
 }
 
-async function safeStat(path: string, opts?: StatOptions & { bigint?: false }): Promise<Stats> {
+async function safeLstat(path: string, opts?: StatOptions & { bigint?: false }): Promise<Stats> {
   try {
-    return await stat(path, opts);
+    return await lstat(path, opts);
   }
   catch {
     return null;
@@ -93,6 +95,21 @@ function getCaseInsensitiveProperty(obj: any, key: string) {
   }
 
   return undefined;
+}
+
+function cyrb53(str: string, seed = 0): string {
+  let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
+
+  for (let i = 0, ch; i < str.length; i++) {
+    ch = str.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+
+  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(16).toUpperCase().padStart(14, '0');
 }
 
 let checkedGzipShell = false;
@@ -118,6 +135,12 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
   }
   else if (!options)
     options = urlOrOptions as ExtendedRequestOptions;
+
+  if (!options.protocol.endsWith(':'))
+    options.protocol += ':';
+
+  if (!options.path.startsWith('/'))
+    options.path = '/' + (options.path || '');
 
   if (!options.headers)
     options.headers = { 'Accept-Encoding': 'gzip, deflate, br' };
@@ -165,6 +188,28 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
   if (options.cachePath) {
     cachePath = options.cachePath;
     delete options.cachePath;
+
+    if (/[/\\]$/.test(cachePath) || (await safeLstat(cachePath))?.isDirectory()) {
+      const url = isString(urlOrOptions) ? urlOrOptions :
+        options.protocol + (options.hostname || options.host) +
+        (options.port ? ':' + options.port : '') + options.path;
+      let base = '';
+      let suffix = '';
+      let $ = /.+\/([^?&]+)/.exec(options.path);
+
+      if ($) {
+        base = makePlainASCII($[1], true);
+
+        if (($ = /^(.+)(\..+)$/.exec(base))) {
+          base = $[1].substring(0, 20) + '-';
+          suffix = $[2].substring(0, 8);
+        }
+        else
+          base = base.substring(0, 20) + '-';
+      }
+
+      cachePath = pathUtil.join(cachePath, base + cyrb53(url + (body ? body.toString() : '')) + suffix);
+    }
   }
 
   const protocol = (options.protocol === 'https:' ? https : http);
@@ -186,9 +231,9 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
   let canUseCache = false;
 
   if (cachePath) {
-    const stats = await safeStat(cachePath);
+    const stats = await safeLstat(cachePath);
 
-    if (stats) {
+    if (stats && (!options.maxCacheAge || stats.mtimeMs > Date.now() - options.maxCacheAge)) {
       canUseCache = true;
 
       if (!getCaseInsensitiveProperty(options?.headers, 'If-Modified-Since'))
@@ -198,7 +243,12 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
 
   return new Promise<string | Buffer | number>((resolve, reject) => {
     const endStream = !options.dontEndStream && stream !== process.stdout && stream !== process.stderr;
+    const reportAndResolve = (content: Buffer): void => {
+      if (options.responseInfo)
+        options.responseInfo({ cachePath });
 
+      resolve(content);
+    };
     const req = protocol.request(options as any, res => {
       if (200 <= res.statusCode && res.statusCode < 300) {
         let source = res as any;
@@ -350,7 +400,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
             content = Buffer.concat([content, data], content.length + data.length);
         });
 
-        source.once('end', () => {
+       source.once('end', () => {
           if (options.progress && contentLength === undefined)
             options.progress(bytesRead, bytesRead);
 
@@ -358,6 +408,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
             options.responseInfo({
               bomDetected,
               bomRemoved: removeBom,
+              cachePath,
               charset: binary ? 'binary' : charset,
               contentEncoding: contentEncoding || 'identity',
               contentLength: bytesRead,
@@ -374,7 +425,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
           }
           else if (binary) {
             if (cachePath)
-              ensureDirectory(cachePath).then(() => writeFile(cachePath, content).finally(() => resolve(content)));
+              ensureDirectory(cachePath).then(() => writeFile(cachePath, content).finally(() => reportAndResolve(content)));
             else
               resolve(content);
           }
@@ -390,7 +441,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
               text = text.substr(1);
 
             if (cachePath)
-              ensureDirectory(cachePath).then(() => writeFile(cachePath, text, { encoding }).finally(() => resolve(content)));
+              ensureDirectory(cachePath).then(() => writeFile(cachePath, text, { encoding }).finally(() => reportAndResolve(content)));
             else
               resolve(text);
           }
@@ -401,13 +452,13 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
           stream.end();
 
       if (canUseCache && res.statusCode === 304)
-        readFile(cachePath, { encoding }).then((content: any) => resolve(content)).catch((err: any) => reject(err));
+        readFile(cachePath, { encoding }).then((content: any) => reportAndResolve(content)).catch((err: any) => reject(err));
       else
         reject(res.statusCode);
       }
     }).once('error', err => {
       if (canUseCache && err.toString().match(/\b304\b/))
-        readFile(cachePath, { encoding }).then((content: any) => resolve(content)).catch((err: any) => reject(err));
+        readFile(cachePath, { encoding }).then((content: any) => reportAndResolve(content)).catch((err: any) => reject(err));
       else
         reject(err);
     });

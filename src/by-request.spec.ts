@@ -2,10 +2,17 @@ import chai, { expect } from 'chai';
 import { request } from './by-request';
 import chaiAsPromised from 'chai-as-promised';
 import { port } from './test-server.spec';
-// import { stat, unlink, writeFile } from 'fs/promises'; // Would prefer this syntax, but requires Node 14+
-const { stat, unlink, writeFile } = require('fs').promises;
+// import { stat, unlink, utimes, writeFile } from 'fs/promises'; // Would prefer this syntax, but requires Node 14+
+const { stat, unlink, utimes, writeFile } = require('fs').promises;
 
 chai.use(chaiAsPromised);
+
+async function safeDelete(path: string): Promise<void> {
+  try {
+    await unlink(path);
+  }
+  catch {}
+}
 
 describe('by-request', () => {
   it('should handle HTTP errors correctly', async function () {
@@ -17,14 +24,12 @@ describe('by-request', () => {
   });
 
   it('should use cache correctly', async function () {
+    this.timeout(15000);
+    this.slow(10000);
     const url = 'https://file-examples-com.github.io/uploads/2017/02/index.html';
     const path = 'cache/sample.html';
 
-    try {
-      await unlink(path);
-    }
-    catch {}
-
+    await safeDelete(path);
     let content = await request(url, { cachePath: path });
     expect(content.toString()).to.contain('Lorem ipsum dolor sit amet');
     await expect(stat(path)).to.eventually.be.ok;
@@ -37,13 +42,29 @@ describe('by-request', () => {
     expect(content.toString()).to.not.contain('Lorem ipsum dolor sit amet');
     expect(content.toString()).to.equal('foo bar');
 
-    try {
-      await unlink(path);
-    }
-    catch {}
+    // Artificially age cache to test maxCacheAge.
+    const dayAgo = Date.now() / 1000 - 86400;
+    await utimes(path, dayAgo, dayAgo);
+    content = await request(url, { cachePath: path, maxCacheAge: 1000 });
+    expect(content.toString()).to.contain('Lorem ipsum dolor sit amet');
+    await safeDelete(path);
+
+    let createdPath: string;
+    content = await request({
+      protocol: 'https',
+      host: 'file-examples-com.github.io',
+      path: 'uploads/2017/02/index.html',
+      cachePath: 'cache',
+      responseInfo: info => createdPath = info.cachePath
+    });
+    expect(content.toString()).to.contain('Lorem ipsum dolor sit amet');
+    expect(createdPath).to.be.ok;
+    await safeDelete(createdPath);
   });
 
-  it('should be able request using POST', async () => {
+  it('should be able request using POST', async function () {
+    this.timeout(15000);
+    this.slow(10000);
     let content = await request(`http://localhost:${port}/test13`, {
       json: { do: 77, re: 'abc', mi: true, so: 'ignored' }
     });
