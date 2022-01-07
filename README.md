@@ -9,7 +9,7 @@ The **by-request** package provides four ways to retrieve data via HTTP/HTTPS, a
 * `requestJson(`...`): Promise<any>`
 * `requestText(`...`): Promise<string>`
 
-GET and POST requests are handled, and optional automatic caching can be used.
+GET and POST requests are handled, and optional automatic file caching can be used.
 
 ### Installation
 
@@ -21,6 +21,14 @@ GET and POST requests are handled, and optional automatic caching can be used.
 
 ```typescript
 const audio = await requestBinary('https://musicalstuff.net/some_song.mp3');
+```
+
+```typescript
+const forecast = await requestText('https://forekast.info/forecast/local/', {
+    cacheDir: 'weather-cache/',
+    maxCacheAge: 900000, // 15 minutes
+    params: { city: 'poughkeepsie', state: 'ny', country: 'us' }
+  });
 ```
 
 ```typescript
@@ -79,7 +87,7 @@ interface ExtendedRequestOptions extends RequestOptions {
 
 For the options marked "follow-redirects", see the [follow-redirects documentation](https://github.com/follow-redirects/follow-redirects/blob/master/README.md).
 
-The other options are as follows:
+The other options are available as follows:
 
 * `autoDecompress`: If a response has a `Content-Type` of gzip, gzipped, or gunzip, automatically decompress the content rather than returning the compressed data.
 * `body`: If a `body` for a request is provided, the request will be made using the POST method, and the `body` will be sent as part of the request. The `Content-Type` header will automatically be `text/plain; charset=UTF-8` unless you provide an overriding header value.
@@ -118,6 +126,8 @@ interface ResponseInfo {
 * `contentLength`: The total number of bytes read. For compressed data, this is the compressed length, not the expanded length.
 * `contentType`: The value of the HTTP `Content-Type` header.
 * `stream`: When using `requestFile()`, this is either the stream that was passed into the function, or the stream that was created for the file path.
+
+Note: If you provide your own `Content-Type` header, only the `body` option is valid for POSTed content (`json` and `params` options will be ignored), and you are responsible for correctly encoding the provided `body`. All requests without using the `body`, `json`, or `params` options use the GET method, rather than POST.
 
 ### Functions
 
