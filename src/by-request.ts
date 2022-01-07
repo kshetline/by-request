@@ -62,7 +62,7 @@ export interface ExtendedRequestOptions extends ReqOptions {
   maxBodyLength?: number; // follow-redirects
   maxCacheAge?: number;
   maxRedirects?: number; // follow-redirects
-  params?: any;
+  params?: string | Record<string, string | number | boolean | null>;
   progress?: (bytesRead: number, totalBytes: number | undefined) => void;
   responseInfo?: (info: ResponseInfo) => void;
   stream?: Writable; // For internal use only
@@ -167,7 +167,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
       contentType = contentType || 'application/x-www-form-urlencoded; charset=UTF-8';
     }
     else if (options.json) {
-      body = isString(options.json) ? options.params : JSON.stringify(options.json);
+      body = isString(options.json) ? options.json : JSON.stringify(options.json);
       contentType = contentType || 'application/json; charset=UTF-8';
     }
     else if (options.body) {
