@@ -25,7 +25,7 @@ import iconv from 'iconv-lite';
 import { StatusCodes } from 'http-status-codes';
 import { Writable } from 'stream';
 import { SecureContextOptions } from 'tls';
-import { clone, isString, processMillis } from '@tubular/util';
+import { clone, isString, processMillis, urlEncodeParams } from '@tubular/util';
 import { spawn } from 'child_process';
 import { StatOptions, Stats } from 'fs';
 import * as pathUtil from 'path';
@@ -56,9 +56,11 @@ export interface ExtendedRequestOptions extends ReqOptions {
   followRedirects?: boolean; // follow-redirects
   forceEncoding?: boolean;
   ignoreBom?: boolean;
+  json?: any;
   keepBom?: boolean;
   maxBodyLength?: number; // follow-redirects
   maxRedirects?: number; // follow-redirects
+  params?: any;
   progress?: (bytesRead: number, totalBytes: number | undefined) => void;
   responseInfo?: (info: ResponseInfo) => void;
   stream?: Writable; // For internal use only
@@ -93,16 +95,6 @@ function getCaseInsensitiveProperty(obj: any, key: string) {
   return undefined;
 }
 
-function isValidJson(s: string): boolean {
-  try {
-    JSON.parse(s);
-    return true;
-  }
-  catch {}
-
-  return false;
-}
-
 let checkedGzipShell = false;
 let hasGzipShell = false;
 
@@ -112,7 +104,6 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
   let body: Buffer | string;
   let cachePath: string;
   let encoding = anEncoding as BufferEncoding;
-  let charset = 'utf-8' as BufferEncoding;
 
   if (typeof urlOrOptions === 'string')
     options = parseUrl(urlOrOptions);
@@ -141,29 +132,35 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
     forceEncoding = false;
   }
 
-  options.method = options.method || (options.body ? 'POST' : 'GET');
+  options.method = options.method || (options.body || options.params || options.json ? 'POST' : 'GET');
 
-  if (options.body) {
-    body = options.body;
-    delete options.body;
+  let contentType = getCaseInsensitiveProperty(options.headers, 'Content-Type');
+  const hadContentType = !!contentType;
+  const charset = ((/\bcharset\s*=\s*([\S]+)\s*$/i.exec(contentType || '') ?? [])[1] ?? 'utf8').toLowerCase() as BufferEncoding;
 
-    const contentType = getCaseInsensitiveProperty(options.headers, 'content-type');
-    let $: RegExpExecArray;
-
-    if (!contentType) {
-      let contentType = 'text/plain';
-      const bodyText = isString(body) ? body : body.toString('utf8');
-
-      if (isValidJson(bodyText))
-        contentType = 'application/json';
-      else if (/\s*[a-z][-._~a-z0-9]*=\S+?&/i.test(bodyText))
-        contentType = 'application/x-www-form-urlencoded';
-
-      options.headers['Content-Type'] = contentType;
+  if (!contentType) {
+    if (options.params) {
+      body = isString(options.params) ? options.params : urlEncodeParams(options.params);
+      contentType = contentType || 'application/x-www-form-urlencoded; charset=UTF-8';
     }
-    else if (($ = /\bcharset\s*=\s*[\S]+\s*$/i.exec(contentType)))
-      charset = $[1].toLowerCase() as BufferEncoding;
+    else if (options.json) {
+      body = isString(options.json) ? options.params : JSON.stringify(options.json);
+      contentType = contentType || 'application/json; charset=UTF-8';
+    }
+    else if (options.body) {
+      body = options.body;
+      contentType = contentType || 'text/plain; charset=UTF-8';
+    }
   }
+  else
+    body = options.body;
+
+  if (!hadContentType && contentType)
+    options.headers['Content-Type'] = contentType;
+
+  delete options.body;
+  delete options.json;
+  delete options.params;
 
   if (options.cachePath) {
     cachePath = options.cachePath;

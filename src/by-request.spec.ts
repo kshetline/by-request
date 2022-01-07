@@ -45,20 +45,25 @@ describe('by-request', () => {
 
   it('should be able request using POST', async () => {
     let content = await request(`http://localhost:${port}/test13`, {
-      body: JSON.stringify({ do: 77, re: 'abc', mi: true, so: 'ignored' })
+      json: { do: 77, re: 'abc', mi: true, so: 'ignored' }
     });
     expect(content.toString()).to.equal('77,abc,true');
 
     content = await request(`http://localhost:${port}/test13`, {
-      body: 'do=55&re=a+b&mi=%3Ac'
+      headers: { 'content-type': 'application/json' },
+      body: '{"do":456,"re":"xyz","mi":false}'
+    });
+    expect(content.toString()).to.equal('456,xyz,false');
+
+    content = await request(`http://localhost:${port}/test13`, {
+      params: 'do=55&re=a+b&mi=%3Ac'
     });
     expect(content.toString()).to.equal('55,a b,:c');
 
     content = await request(`http://localhost:${port}/test13`, {
-      body: 'do=55&re=a+b&mi=%3Ac',
-      headers: { 'content-type': 'text/plain' }
+      params: { do: 55, re: 'a b', mi: ':d' }
     });
-    expect(content.toString()).to.equal('do=55&re=a+b&mi=%3Ac');
+    expect(content.toString()).to.equal('55,a b,:d');
 
     content = await request(`http://localhost:${port}/test13`, {
       body: 'echo this'
