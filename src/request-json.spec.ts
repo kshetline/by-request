@@ -1,6 +1,5 @@
 import { ResponseInfo } from './by-request';
 import { expect } from 'chai';
-import { NOT_FOUND } from 'http-status-codes';
 import { requestJson } from './request-json';
 import { port } from './test-server.spec';
 
@@ -34,7 +33,7 @@ describe('request-json', () => {
     requestJson(`http://localhost:${port}/doesnt_exist/`).then(() =>
       expect(false).to.be.true('Exception for HTTP error should have been thrown.')
     ).catch(err =>
-      expect(err).equals(NOT_FOUND)
+      expect(err.message).equals('Error 404: Not Found')
     )
   );
 });

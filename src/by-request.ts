@@ -109,7 +109,7 @@ function makeError(err: any): Error {
 
   if (code >= 100) {
     try {
-      return new Error(`${code}: ${getReasonPhrase(code)}`);
+      return new Error(`Error ${code}: ${getReasonPhrase(code)}`);
     }
     catch {
       return new Error(`Unknown HTTP status code ${code}`);

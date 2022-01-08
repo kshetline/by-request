@@ -89,7 +89,7 @@ describe('request-text', () => {
     expect(count > 0).to.be.true;
     expect(bytesRead).equals(totalBytes);
     expect(bytesRead).equals(responseInfo.contentLength);
-    expect(responseInfo.charset).equals('utf8');
+    expect(responseInfo.charset).equals('utf-8');
     expect(responseInfo.contentEncoding).equals('gzip');
   });
 
