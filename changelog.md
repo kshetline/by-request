@@ -4,6 +4,7 @@
 
 * Added POST request handling.
 * Added optional file caching.
+* Improved handling of possibly-noncompliant gzip data streams that cause zlib to fail.
 
 ## 1.2.5
 
