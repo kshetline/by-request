@@ -157,7 +157,6 @@ describe('request-text', () => {
     expect(content).contains('This document has been transmitted with content encoding `deflate\'.');
   });
 
-  // https://tools-7.kxcdn.com/css/style-028e36f320.css
   it('should handle Brotli-encoded content', async function () {
     this.timeout(10000);
     this.slow(5000);

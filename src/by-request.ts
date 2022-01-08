@@ -485,9 +485,9 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
 
           if (postDecompress) {
             // Why take all of this trouble to work with a temp file instead of just piping streams?
-            // Because if I don't, mysterious "write EPIPE" errors occur that can't be caught and cause
-            // the code to fail, even after successfully obtaining the decompressed data. This absurd
-            // work-around solves that problem.
+            // Because if I don't, mysterious "write EPIPE / at WriteWrap.onWriteComplete [as oncomplete]"
+            // errors occur that can't be caught and cause the code to fail, even after successfully
+            // obtaining the decompressed data. This absurd work-around solves that problem.
             temp.open('by-request-', (err, file) => {
               if (err)
                 reject_(err);
