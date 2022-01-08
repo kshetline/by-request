@@ -121,7 +121,7 @@ interface ResponseInfo {
 * `bomDetected`: Whether or not a BOM was detected.
 * `bomRemoved`: Whether or not a BOM was removed.
 * `callback`: If JSONP data has been retrieved, this is the name of the callback function.
-* `cachePath`: If the `cacheDir` option is used, this will contain the name of the file where data has been cached. If the cache was used rather than making a fresh HTTP/HTTPS request, this value and `fromCache` will be the only feedback received.
+* `cachePath`: If the `cachePath` option is used in your request, this will contain the name of the file where data has been cached. If the cache was used rather than making a fresh HTTP/HTTPS request, this value and `fromCache` will be the only feedback received.
 * `charset`: The character encoding ultimately used to interpret text or JSON data. This will be `'binary'` for binary and file operations.
 * `contentEncoding`: The value of the HTTP `Content-Encoding` header.
 * `contentLength`: The total number of bytes read. For compressed data, this is the compressed length, not the expanded length.
