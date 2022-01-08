@@ -22,13 +22,17 @@ import { FollowOptions, http, https } from 'follow-redirects';
 // eslint-disable-next-line node/no-deprecated-api
 import { parse as parseUrl } from 'url';
 import iconv from 'iconv-lite';
-import { StatusCodes } from 'http-status-codes';
+import { getReasonPhrase, StatusCodes } from 'http-status-codes';
 import { Writable } from 'stream';
 import { SecureContextOptions } from 'tls';
-import { clone, isString, makePlainASCII, processMillis, urlEncodeParams } from '@tubular/util';
-import { spawn } from 'child_process';
-import { StatOptions, Stats } from 'fs';
+import { clone, isString, makePlainASCII, processMillis, toNumber, urlEncodeParams } from '@tubular/util';
+import fs, { StatOptions, Stats } from 'fs';
+import temp from 'temp';
 import * as pathUtil from 'path';
+import { spawn } from 'child_process';
+
+temp.track();
+
 // import { lstat, mkdir, readFile, writeFile } from 'fs/promises'; // Would prefer this syntax, but requires Node 14+
 const { lstat, mkdir, readFile, writeFile } = require('fs').promises;
 
@@ -98,6 +102,24 @@ function getCaseInsensitiveProperty(obj: any, key: string) {
   return undefined;
 }
 
+function makeError(err: any): Error {
+  if (err instanceof Error)
+    return err;
+
+  const code = toNumber(err);
+
+  if (code >= 100) {
+    try {
+      return new Error(`${code}: ${getReasonPhrase(code)}`);
+    }
+    catch {
+      return new Error(`Unknown HTTP status code ${code}`);
+    }
+  }
+
+  return new Error(err.toString());
+}
+
 function cyrb53(str: string, seed = 0): string {
   let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
 
@@ -145,9 +167,9 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
     options.path = '/' + (options.path || '');
 
   if (!options.headers)
-    options.headers = { 'Accept-Encoding': 'gzip, deflate, br' };
+    options.headers = { 'Accept-Encoding': 'gzip,deflate,br' };
   else if (!getCaseInsensitiveProperty(options.headers, 'accept-encoding'))
-    options.headers['Accept-Encoding'] = 'gzip, deflate, br';
+    options.headers['Accept-Encoding'] = 'gzip,deflate,br';
 
   let forceEncoding = options.forceEncoding;
 
@@ -258,6 +280,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
   delete options.maxCacheAge;
 
   return new Promise<string | Buffer | number>((resolve, reject) => {
+    const reject_ = (err: any) => reject(makeError(err));
     const endStream = !options.dontEndStream && stream !== process.stdout && stream !== process.stderr;
     const reportAndResolve = (content: Buffer | string): void => {
       if (options.responseInfo)
@@ -268,6 +291,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
     const req = protocol.request(options as any, res => {
       if (200 <= res.statusCode && res.statusCode < 300) {
         let source = res as any;
+        let postDecompress = false;
         const contentEncoding = (res.headers['content-encoding'] || '').toLowerCase();
         const contentType = (res.headers['content-type'] || '').toLowerCase();
         let contentLength = parseInt(res.headers['content-length'], 10);
@@ -282,22 +306,17 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
         let removeBom = false;
 
         if (!options.dontDecompress || !binary) {
-          if (contentEncoding === 'gzip' || contentEncoding === 'x-gzip' ||
+          if (contentEncoding === 'x-gzip' && hasGzipShell)
+            // createGunzip sometimes chokes with "incorrect header check" errors on 'x-gzip' content,
+            // whereas command-line gzip (if available) does not.
+            postDecompress = true;
+          else if (contentEncoding === 'gzip' || contentEncoding === 'x-gzip' ||
               (options.autoDecompress && /\b(gzip|gzipped|gunzip)\b/.test(contentType))) {
-            if (hasGzipShell && contentEncoding === 'x-gzip') {
-              const gzipProc = spawn('gzip', ['-dc']);
-
-              source = gzipProc.stdout;
-              res.pipe(gzipProc.stdin);
-              gzipProc.once('error', err => reject(err));
-            }
-            else {
-              source = zlib.createGunzip();
-              res.pipe(source);
-            }
+            source = zlib.createGunzip({ windowBits: 15 });
+            res.pipe(source);
           }
           else if (contentEncoding === 'deflate' || (options.autoDecompress && /\bdeflate\b/.test(contentType))) {
-            source = zlib.createInflate();
+            source = zlib.createDeflate();
             res.pipe(source);
           }
           else if (contentEncoding === 'br') {
@@ -305,7 +324,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
             res.pipe(source);
           }
           else if (contentEncoding && contentEncoding !== 'identity') {
-            reject(StatusCodes.UNSUPPORTED_MEDIA_TYPE);
+            reject_(StatusCodes.UNSUPPORTED_MEDIA_TYPE);
             return;
           }
         }
@@ -315,7 +334,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
             if (stream && (endStream || options.streamCreated))
               stream.end();
 
-            reject(error);
+            reject_(error);
           });
 
           res.on('data', (data: Buffer) => {
@@ -333,16 +352,16 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
             const $ = /\bcharset\s*=\s*['"]?\s*([\w-]+)\b/.exec(contentType);
 
             if ($)
-              charset = $[1].replace('utf-8', 'utf8').replace('us-ascii', 'ascii');
+              charset = $[1].replace('us-ascii', 'ascii');
             else {
               charset = encoding;
               autodetect = true;
             }
           }
 
-          if (!/^(ascii|utf8|utf16le|ucs2|base64|binary|hex)$/.test(charset)) {
+          if (!/^(ascii|utf8|utf-8|utf16le|ucs2|base64|binary|hex)$/.test(charset)) {
             if (!iconv.encodingExists(charset)) {
-              reject(StatusCodes.UNSUPPORTED_MEDIA_TYPE);
+              reject_(StatusCodes.UNSUPPORTED_MEDIA_TYPE);
               return;
             }
 
@@ -356,7 +375,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
           if (stream && (endStream || options.streamCreated))
             stream.end();
 
-          reject(error);
+          reject_(error);
         });
 
         source.on('data', (data: Buffer) => {
@@ -373,7 +392,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
             if (bomCharset) {
               if (!forceEncoding) {
                 if (!iconv.encodingExists(bomCharset)) {
-                  reject(StatusCodes.UNSUPPORTED_MEDIA_TYPE);
+                  reject_(StatusCodes.UNSUPPORTED_MEDIA_TYPE);
                   return;
                 }
 
@@ -394,7 +413,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
 
             if (embeddedEncoding) {
               if (!iconv.encodingExists(embeddedEncoding)) {
-                reject(StatusCodes.UNSUPPORTED_MEDIA_TYPE);
+                reject_(StatusCodes.UNSUPPORTED_MEDIA_TYPE);
                 return;
               }
 
@@ -408,7 +427,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
             stream.write(data, error => {
               if (error) {
                 stream.end();
-                reject(error);
+                reject_(error);
               }
             });
           }
@@ -417,51 +436,86 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
         });
 
        source.once('end', () => {
-          if (options.progress && contentLength === undefined)
-            options.progress(bytesRead, bytesRead);
+         const wrapUp = () => {
+            if (options.progress && contentLength === undefined)
+              options.progress(bytesRead, bytesRead);
 
-          if (options.responseInfo) {
-            options.responseInfo({
-              bomDetected,
-              bomRemoved: removeBom,
-              cachePath,
-              charset: binary ? 'binary' : charset,
-              contentEncoding: contentEncoding || 'identity',
-              contentLength: bytesRead,
-              contentType,
-              fromCache,
-              stream
+            if (options.responseInfo) {
+              options.responseInfo({
+                bomDetected,
+                bomRemoved: removeBom,
+                cachePath,
+                charset: binary ? 'binary' : charset,
+                contentEncoding: contentEncoding || 'identity',
+                contentLength: bytesRead,
+                contentType,
+                fromCache,
+                stream
+              });
+            }
+
+            if (stream) {
+              if (endStream)
+                stream.end();
+
+              resolve(bytesRead);
+            }
+            else if (binary) {
+              if (cachePath)
+                ensureDirectory(cachePath).then(() => writeFile(cachePath, content).finally(() => reportAndResolve(content)));
+              else
+                resolve(content);
+            }
+            else {
+              let text: string;
+
+              if (usingIconv)
+                text = iconv.decode(content, charset, { stripBOM: false });
+              else
+                text = content.toString(charset as BufferEncoding);
+
+              if (removeBom && text.charCodeAt(0) === 0xFEFF)
+                text = text.substr(1);
+
+              if (cachePath)
+                ensureDirectory(cachePath).then(() => writeFile(cachePath, text, { encoding }).finally(() => reportAndResolve(text)));
+              else
+                resolve(text);
+            }
+          };
+
+          if (postDecompress) {
+            // Why take all of this trouble to work with a temp file instead of just piping streams?
+            // Because if I don't, mysterious "write EPIPE" errors occur that can't be caught and cause
+            // the code to fail, even after successfully obtaining the decompressed data. This absurd
+            // work-around solves that problem.
+            temp.open('by-request-', (err, file) => {
+              if (err)
+                reject_(err);
+              else {
+                fs.write(file.fd, content, err => err && reject_(err));
+                fs.close(file.fd, err => {
+                  if (err)
+                    reject_(err);
+                  else {
+                    const gzipProc = spawn('gzip', ['-dc', file.path]);
+                    let decompressed = Buffer.alloc(0);
+
+                    gzipProc.stdout.on('data', d => decompressed = Buffer.concat([decompressed, d], decompressed.length + d.length));
+                    gzipProc.stdout.on('error', err => reject_(err));
+                    gzipProc.stdout.on('end', () => {
+                      content = decompressed;
+                      bytesRead = content.length;
+                      fs.unlink(file.path, () => {});
+                      wrapUp();
+                    });
+                  }
+                });
+              }
             });
           }
-
-          if (stream) {
-            if (endStream)
-              stream.end();
-
-            resolve(bytesRead);
-          }
-          else if (binary) {
-            if (cachePath)
-              ensureDirectory(cachePath).then(() => writeFile(cachePath, content).finally(() => reportAndResolve(content)));
-            else
-              resolve(content);
-          }
-          else {
-            let text: string;
-
-            if (usingIconv)
-              text = iconv.decode(content, charset, { stripBOM: false });
-            else
-              text = content.toString(charset as BufferEncoding);
-
-            if (removeBom && text.charCodeAt(0) === 0xFEFF)
-              text = text.substr(1);
-
-            if (cachePath)
-              ensureDirectory(cachePath).then(() => writeFile(cachePath, text, { encoding }).finally(() => reportAndResolve(text)));
-            else
-              resolve(text);
-          }
+          else
+            wrapUp();
         });
       }
       else {
@@ -470,9 +524,9 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
 
       if (canUseCache && res.statusCode === 304)
         readFile(cachePath, { encoding: encoding === 'binary' ? null : encoding })
-          .then((content: any) => reportAndResolve(content)).catch((err: any) => reject(err));
+          .then((content: any) => reportAndResolve(content)).catch((err: any) => reject_(err));
       else
-        reject(res.statusCode);
+        reject_(res.statusCode);
       }
     }).once('error', err => {
       if (canUseCache && err.toString().match(/\b304\b/))
@@ -480,20 +534,20 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
           .then((content: any) => {
             fromCache = true;
             reportAndResolve(content);
-          }).catch((err: any) => reject(err));
+          }).catch((err: any) => reject_(err));
       else
-        reject(err);
+        reject_(err);
     });
 
     req.once('timeout', () => {
       req.abort();
-      reject(new Error(`HTTP timeout after ${Math.round(processMillis() - startTime)} msec`));
+      reject_(`HTTP timeout after ${Math.round(processMillis() - startTime)} msec`);
     });
 
     if (body) {
       req.write(isString(body) ? Buffer.from(body, charset) : body, err => {
         if (err)
-          reject(err);
+          reject_(err);
         else
           req.end();
       });
