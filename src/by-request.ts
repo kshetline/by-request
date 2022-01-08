@@ -19,8 +19,7 @@
 import { RequestOptions } from 'http';
 import zlib from 'zlib';
 import { FollowOptions, http, https } from 'follow-redirects';
-// eslint-disable-next-line node/no-deprecated-api
-import { parse as parseUrl } from 'url';
+import { parse as parseUrl } from 'url'; // eslint-disable-line node/no-deprecated-api
 import iconv from 'iconv-lite';
 import { getReasonPhrase, StatusCodes } from 'http-status-codes';
 import { Writable } from 'stream';
@@ -146,7 +145,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
   let encoding = anEncoding as BufferEncoding;
   let fromCache = false;
 
-  if (typeof urlOrOptions === 'string')
+  if (typeof urlOrOptions === 'string') // noinspection JSDeprecatedSymbols
     options = parseUrl(urlOrOptions);
 
   if (typeof optionsOrEncoding === 'string')
@@ -316,7 +315,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
             res.pipe(source);
           }
           else if (contentEncoding === 'deflate' || (options.autoDecompress && /\bdeflate\b/.test(contentType))) {
-            source = zlib.createDeflate();
+            source = zlib.createInflateRaw();
             res.pipe(source);
           }
           else if (contentEncoding === 'br') {
