@@ -7,3 +7,8 @@
 *.js.map
 *.spec.d.ts
 *.spec.js
+/cache
+.eslintignore
+.eslintrc.json
+.travis.yml
+/.vscode

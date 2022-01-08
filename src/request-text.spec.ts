@@ -89,7 +89,7 @@ describe('request-text', () => {
     expect(count > 0).to.be.true;
     expect(bytesRead).equals(totalBytes);
     expect(bytesRead).equals(responseInfo.contentLength);
-    expect(responseInfo.charset).equals('utf8');
+    expect(responseInfo.charset).equals('utf-8');
     expect(responseInfo.contentEncoding).equals('gzip');
   });
 
@@ -148,5 +148,19 @@ describe('request-text', () => {
     this.timeout(15000);
     this.slow(10000);
     await expect(requestText('http://httpstat.us/522?sleep=6000', { timeout: 3000 })).to.eventually.be.rejected;
+  });
+
+  it('should handle deflate-encoded content', async function () {
+    this.timeout(10000);
+    this.slow(5000);
+    const content = await requestText('http://carsten.codimi.de/gzip.yaws/daniels.html?deflate=on');
+    expect(content).contains('This document has been transmitted with content encoding `deflate\'.');
+  });
+
+  it('should handle Brotli-encoded content', async function () {
+    this.timeout(10000);
+    this.slow(5000);
+    const content = await requestText('https://tools-7.kxcdn.com/css/style-028e36f320.css');
+    expect(content).contains('Bootstrap v4.5.0');
   });
 });

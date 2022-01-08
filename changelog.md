@@ -1,5 +1,11 @@
 # Change Log
 
+## 1.3.0
+
+* Added POST request handling.
+* Added optional file caching.
+* Improved handling of possibly-noncompliant gzip data streams that cause zlib to fail.
+
 ## 1.2.5
 
 * Restored ability to handle streams marked as gzip or deflate by ContentType rather than by ContentEncoding.
