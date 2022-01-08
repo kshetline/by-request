@@ -113,6 +113,7 @@ interface ResponseInfo {
   contentEncoding: string;
   contentLength: number;
   contentType: string;
+  fromCache?: boolean;
   stream: Writable;
 }
 ```
@@ -120,11 +121,12 @@ interface ResponseInfo {
 * `bomDetected`: Whether or not a BOM was detected.
 * `bomRemoved`: Whether or not a BOM was removed.
 * `callback`: If JSONP data has been retrieved, this is the name of the callback function.
-* `cachePath`: If the `cacheDir` option is used, this is the name of the file where data has been cached. If the cache was used rather than making a fresh HTTP/HTTPS request, this will be the only feedback received.
+* `cachePath`: If the `cacheDir` option is used, this will contain the name of the file where data has been cached. If the cache was used rather than making a fresh HTTP/HTTPS request, this value and `fromCache` will be the only feedback received.
 * `charset`: The character encoding ultimately used to interpret text or JSON data. This will be `'binary'` for binary and file operations.
 * `contentEncoding`: The value of the HTTP `Content-Encoding` header.
 * `contentLength`: The total number of bytes read. For compressed data, this is the compressed length, not the expanded length.
 * `contentType`: The value of the HTTP `Content-Type` header.
+* `fromCache`: `true` if content was retrieved from cache.
 * `stream`: When using `requestFile()`, this is either the stream that was passed into the function, or the stream that was created for the file path.
 
 Note: If you provide your own `Content-Type` header, only the `body` option is valid for POSTed content (`json` and `params` options will be ignored), and you are responsible for correctly encoding the provided `body`. All requests without using the `body`, `json`, or `params` options use the GET method, rather than POST.

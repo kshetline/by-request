@@ -43,6 +43,7 @@ export interface ResponseInfo {
   contentEncoding?: string;
   contentLength?: number;
   contentType?: string;
+  fromCache?: boolean;
   stream?: Writable;
 }
 
@@ -121,12 +122,13 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
   let body: Buffer | string;
   let cachePath: string;
   let encoding = anEncoding as BufferEncoding;
+  let fromCache = false;
 
   if (typeof urlOrOptions === 'string')
     options = parseUrl(urlOrOptions);
 
   if (typeof optionsOrEncoding === 'string')
-    encoding = optionsOrEncoding as BufferEncoding;
+    encoding = (optionsOrEncoding.replace('us-ascii', 'ascii')) as BufferEncoding;
   else if (optionsOrEncoding) {
     if (options)
       Object.assign(options, optionsOrEncoding);
@@ -198,7 +200,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
       let $ = /.+\/([^?&]+)/.exec(options.path);
 
       if ($) {
-        base = makePlainASCII($[1], true);
+        base = makePlainASCII($[1], true).replace(/,/g, '-').replace(/^([^a-z])/i, 'X$1');
 
         if (($ = /^(.+)(\..+)$/.exec(base))) {
           base = $[1].substring(0, 20) + '-';
@@ -234,6 +236,18 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
     const stats = await safeLstat(cachePath);
 
     if (stats && (!options.maxCacheAge || stats.mtimeMs > Date.now() - options.maxCacheAge)) {
+      if (options.maxCacheAge) {
+        try {
+          const contents = await readFile(cachePath, { encoding: encoding === 'binary' ? null : encoding });
+
+          if (options.responseInfo)
+            options.responseInfo({ cachePath, fromCache: true });
+
+          return contents;
+        }
+        catch {}
+      }
+
       canUseCache = true;
 
       if (!getCaseInsensitiveProperty(options?.headers, 'If-Modified-Since'))
@@ -241,11 +255,13 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
     }
   }
 
+  delete options.maxCacheAge;
+
   return new Promise<string | Buffer | number>((resolve, reject) => {
     const endStream = !options.dontEndStream && stream !== process.stdout && stream !== process.stderr;
-    const reportAndResolve = (content: Buffer): void => {
+    const reportAndResolve = (content: Buffer | string): void => {
       if (options.responseInfo)
-        options.responseInfo({ cachePath });
+        options.responseInfo({ cachePath, fromCache });
 
       resolve(content);
     };
@@ -268,7 +284,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
         if (!options.dontDecompress || !binary) {
           if (contentEncoding === 'gzip' || contentEncoding === 'x-gzip' ||
               (options.autoDecompress && /\b(gzip|gzipped|gunzip)\b/.test(contentType))) {
-            if (hasGzipShell) {
+            if (hasGzipShell && contentEncoding === 'x-gzip') {
               const gzipProc = spawn('gzip', ['-dc']);
 
               source = gzipProc.stdout;
@@ -317,7 +333,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
             const $ = /\bcharset\s*=\s*['"]?\s*([\w-]+)\b/.exec(contentType);
 
             if ($)
-              charset = $[1] === 'utf-8' ? 'utf8' : $[1];
+              charset = $[1].replace('utf-8', 'utf8').replace('us-ascii', 'ascii');
             else {
               charset = encoding;
               autodetect = true;
@@ -413,6 +429,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
               contentEncoding: contentEncoding || 'identity',
               contentLength: bytesRead,
               contentType,
+              fromCache,
               stream
             });
           }
@@ -441,7 +458,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
               text = text.substr(1);
 
             if (cachePath)
-              ensureDirectory(cachePath).then(() => writeFile(cachePath, text, { encoding }).finally(() => reportAndResolve(content)));
+              ensureDirectory(cachePath).then(() => writeFile(cachePath, text, { encoding }).finally(() => reportAndResolve(text)));
             else
               resolve(text);
           }
@@ -452,13 +469,18 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
           stream.end();
 
       if (canUseCache && res.statusCode === 304)
-        readFile(cachePath, { encoding }).then((content: any) => reportAndResolve(content)).catch((err: any) => reject(err));
+        readFile(cachePath, { encoding: encoding === 'binary' ? null : encoding })
+          .then((content: any) => reportAndResolve(content)).catch((err: any) => reject(err));
       else
         reject(res.statusCode);
       }
     }).once('error', err => {
       if (canUseCache && err.toString().match(/\b304\b/))
-        readFile(cachePath, { encoding }).then((content: any) => reportAndResolve(content)).catch((err: any) => reject(err));
+        readFile(cachePath, { encoding: encoding === 'binary' ? null : encoding })
+          .then((content: any) => {
+            fromCache = true;
+            reportAndResolve(content);
+          }).catch((err: any) => reject(err));
       else
         reject(err);
     });
