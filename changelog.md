@@ -1,5 +1,14 @@
 # Change Log
 
+## 1.3.2
+
+* Allow `requestFile()` (a.k.a. `wget`) to use the same path for both cache file and output file.
+* Fix reporting of `fromCache` in `ResponseInfo`.
+
+## 1.3.1
+
+* `follow-redirects` security update.
+
 ## 1.3.0
 
 * Added POST request handling.

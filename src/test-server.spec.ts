@@ -5,6 +5,7 @@ import * as zlib from 'zlib';
 import { Server } from 'http';
 import * as bodyParser from 'body-parser';
 import { isString } from '@tubular/util';
+import { StatusCodes } from 'http-status-codes';
 
 export const TEST_TEXT_1 = 'Côte d\'Ivoire';
 export const TEST_TEXT_2 = 'Hello, world! 🙂';
@@ -78,8 +79,12 @@ if (!(global as any).testServerStarted) {
   });
 
   app.get('/test9', (req: Request, res: Response) => {
-    res.setHeader('Content-Type', 'application/octet-stream');
-    res.send(Buffer.from([0, 1, 2, 3]));
+    if (req.headers['if-modified-since'])
+      res.status(StatusCodes.NOT_MODIFIED).send('304');
+    else {
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.send(Buffer.from([0, 1, 2, 3]));
+    }
   });
 
   app.get('/test10', (req: Request, res: Response) => {

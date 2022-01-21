@@ -74,7 +74,7 @@ export interface ExtendedRequestOptions extends ReqOptions {
   trackRedirects?: boolean; // follow-redirects
 }
 
-async function safeLstat(path: string, opts?: StatOptions & { bigint?: false }): Promise<Stats> {
+export async function safeLstat(path: string, opts?: StatOptions & { bigint?: false }): Promise<Stats> {
   try {
     return await lstat(path, opts);
   }
@@ -521,14 +521,17 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
         if (stream && (endStream || options.streamCreated))
           stream.end();
 
-      if (canUseCache && res.statusCode === 304)
+      if (canUseCache && res.statusCode === StatusCodes.NOT_MODIFIED)
         readFile(cachePath, { encoding: encoding === 'binary' ? null : encoding })
-          .then((content: any) => reportAndResolve(content)).catch((err: any) => reject_(err));
+          .then((content: any) => {
+            fromCache = true;
+            reportAndResolve(content);
+          }).catch((err: any) => reject_(err));
       else
         reject_(res.statusCode);
       }
     }).once('error', err => {
-      if (canUseCache && err.toString().match(/\b304\b/))
+      if (canUseCache && err.toString().match(/\b304\b/)) // StatusCodes.NOT_MODIFIED
         readFile(cachePath, { encoding: encoding === 'binary' ? null : encoding })
           .then((content: any) => {
             fromCache = true;

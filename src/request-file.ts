@@ -1,6 +1,11 @@
-import { ExtendedRequestOptions, request } from './by-request';
-import { createWriteStream } from 'fs';
+import { ExtendedRequestOptions, request, safeLstat } from './by-request';
+import { createWriteStream, rename as _rename, unlink as _unlink } from 'fs';
 import { Writable } from 'stream';
+import { promisify } from 'util';
+import { noop } from '@tubular/util';
+
+const unlink = promisify(_unlink);
+const rename = promisify(_rename);
 
 export async function requestFile(urlOrOptions: string | ExtendedRequestOptions,
                                   optionsOrPathOrStream?: ExtendedRequestOptions | string | Writable,
@@ -48,8 +53,28 @@ export async function requestFile(urlOrOptions: string | ExtendedRequestOptions,
   if (!path && !stream)
     throw new Error('A Writable stream, a file path, or a URL from which a file name can be extracted must be provided.');
 
+  let outPath = path;
+  let fromCache = false;
+
+  if (!stream && options.cachePath === path) {
+    let index = 0;
+
+    do {
+      outPath = `${path}.${index++}`;
+    } while (await safeLstat(outPath));
+
+    const responseCallback = options.responseInfo;
+
+    options.responseInfo = info => {
+      fromCache = info.fromCache;
+
+      if (responseCallback)
+        responseCallback(info);
+    };
+  }
+
   if (!stream) {
-    stream = createWriteStream(path);
+    stream = createWriteStream(outPath);
     options.streamCreated = true;
 
     await new Promise<void>((resolve, reject) => {
@@ -60,8 +85,18 @@ export async function requestFile(urlOrOptions: string | ExtendedRequestOptions,
 
   options.stream = stream;
 
-  // noinspection ES6MissingAwait
-  return request(url || options, url ? options : undefined, 'binary') as Promise<number>;
+  const length = await request(url || options, url ? options : undefined, 'binary') as unknown as Promise<number>;
+
+  if (fromCache) {
+    await promisify(stream.end);
+    await unlink(outPath).catch(noop);
+  }
+  else if (outPath !== path) {
+    await unlink(path).catch(noop);
+    await rename(outPath, path);
+  }
+
+  return length;
 }
 
 export const wget = requestFile;
