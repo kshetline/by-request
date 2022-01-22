@@ -1,5 +1,9 @@
 # Change Log
 
+## 1.3.3
+
+* Move @types/follow-redirects to dependencies from devDependencies.
+
 ## 1.3.2
 
 * Allow `requestFile()` (a.k.a. `wget`) to use the same path for both cache file and output file.
