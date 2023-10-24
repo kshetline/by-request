@@ -159,10 +159,10 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
   else if (!options)
     options = urlOrOptions as ExtendedRequestOptions;
 
-  if (!options.protocol.endsWith(':'))
+  if (!options.protocol?.endsWith(':'))
     options.protocol += ':';
 
-  if (!options.path.startsWith('/'))
+  if (!options.path?.startsWith('/'))
     options.path = '/' + (options.path || '');
 
   if (!options.headers)
@@ -182,7 +182,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
 
   let contentType = getCaseInsensitiveProperty(options.headers, 'Content-Type');
   const hadContentType = !!contentType;
-  const charset = ((/\bcharset\s*=\s*([\S]+)\s*$/i.exec(contentType || '') ?? [])[1] ?? 'utf8').toLowerCase() as BufferEncoding;
+  const charset = ((/\bcharset\s*=\s*(\S+)\s*$/i.exec(contentType || '') ?? [])[1] ?? 'utf8').toLowerCase() as BufferEncoding;
 
   if (!contentType) {
     if (options.params) {
@@ -474,7 +474,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
                 text = content.toString(charset as BufferEncoding);
 
               if (removeBom && text.charCodeAt(0) === 0xFEFF)
-                text = text.substr(1);
+                text = text.substring(1);
 
               if (cachePath)
                 ensureDirectory(cachePath).then(() => writeFile(cachePath, text, { encoding }).finally(() => reportAndResolve(text)));

@@ -1,5 +1,10 @@
 # Change Log
 
+## 1.3.4
+
+* Fix possible crash in protocol check.
+* Fix unit test broken by missing URL target.
+
 ## 1.3.3
 
 * Move @types/follow-redirects to dependencies from devDependencies.
