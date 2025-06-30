@@ -2,8 +2,7 @@ import chai, { expect } from 'chai';
 import { request } from './by-request';
 import chaiAsPromised from 'chai-as-promised';
 import { port } from './test-server.spec';
-// import { stat, unlink, utimes, writeFile } from 'fs/promises'; // Would prefer this syntax, but requires Node 14+
-const { stat, unlink, utimes, writeFile } = require('fs').promises;
+import { stat, unlink, utimes, writeFile } from 'fs/promises';
 
 chai.use(chaiAsPromised);
 

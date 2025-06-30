@@ -168,7 +168,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
   if (!options.headers)
     options.headers = { 'Accept-Encoding': 'gzip,deflate,br' };
   else if (!getCaseInsensitiveProperty(options.headers, 'accept-encoding'))
-    options.headers['Accept-Encoding'] = 'gzip,deflate,br';
+    (options.headers as any)['Accept-Encoding'] = 'gzip,deflate,br';
 
   let forceEncoding = options.forceEncoding;
 
@@ -202,7 +202,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
     body = options.body;
 
   if (!hadContentType && contentType)
-    options.headers['Content-Type'] = contentType;
+    (options.headers as any)['Content-Type'] = contentType;
 
   delete options.body;
   delete options.json;
@@ -580,7 +580,7 @@ function checkBOM(buffer: Buffer): string {
   if (!buffer || buffer.length < 2)
     return null;
 
-  const bom = Array.from(buffer.slice(0, Math.min(buffer.length, 4)));
+  const bom = Array.from(buffer.subarray(0, Math.min(buffer.length, 4)));
 
   if (bom[0] === 0x00 && bom[1] === 0x00 && bom[2] === 0xFE && bom[3] === 0xFF)
     return 'utf-32be';
@@ -601,7 +601,7 @@ function checkBOM(buffer: Buffer): string {
 
 function lookForEmbeddedEncoding(buffer: Buffer): string {
   // First make sure this isn't likely to be a 16- or 32-bit encoding.
-  const start = Array.from(buffer.slice(0, Math.min(buffer.length, 4)));
+  const start = Array.from(buffer.subarray(0, Math.min(buffer.length, 4)));
 
   if (start[0] === 0 && start[1] === 0 && (start[2] !== 0 || start[3] !== 0))
     return 'utf-32be';
@@ -612,7 +612,7 @@ function lookForEmbeddedEncoding(buffer: Buffer): string {
   else if (start[0] !== 0 && start[1] === 0)
     return 'utf-16le';
 
-  const text = buffer.slice(0, Math.min(buffer.length, MAX_EXAMINE)).toString('ascii').toLowerCase().replace('\n', ' ').trim();
+  const text = buffer.subarray(0, Math.min(buffer.length, MAX_EXAMINE)).toString('ascii').toLowerCase().replace('\n', ' ').trim();
   // Strip line breaks and comments first
   const tagText = text.replace(/\n+/g, ' ').replace(/<!--.*?-->/g, '').trim();
   // Break into tags

@@ -147,7 +147,7 @@ describe('request-text', () => {
   it('should handle timeout correctly', async function () {
     this.timeout(15000);
     this.slow(10000);
-    await expect(requestText('http://httpstat.us/522?sleep=6000', { timeout: 3000 })).to.eventually.be.rejected;
+    await expect(requestText(`http://localhost:${port}/httpstat.us/522?sleep=6000`, { timeout: 3000 })).to.eventually.be.rejected;
   });
 
   it('should handle deflate-encoded content', async function () {
