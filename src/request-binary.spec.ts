@@ -17,7 +17,7 @@ describe('request-binary', () => {
     let unzipped = Buffer.alloc(0);
 
     try {
-      unzipped = zlib.gunzipSync(content);
+      unzipped = zlib.brotliDecompressSync(content);
     }
     catch (err) {
       expect(false).to.be.true(err);

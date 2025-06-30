@@ -2,7 +2,7 @@ import { ExtendedRequestOptions, request, safeLstat } from './by-request';
 import { createWriteStream, rename as _rename, unlink as _unlink } from 'fs';
 import { Writable } from 'stream';
 import { promisify } from 'util';
-import { noop } from '@tubular/util';
+import { isString, noop } from '@tubular/util';
 
 const unlink = promisify(_unlink);
 const rename = promisify(_rename);
@@ -11,10 +11,10 @@ export async function requestFile(urlOrOptions: string | ExtendedRequestOptions,
                                   optionsOrPathOrStream?: ExtendedRequestOptions | string | Writable,
                                   pathOrStream?: string | Writable): Promise<number> {
   // Stream should only be specified directly as a function argument, not as an option within an argument.
-  if (urlOrOptions && typeof urlOrOptions !== 'string')
+  if (urlOrOptions && !isString(urlOrOptions))
     delete urlOrOptions.stream;
 
-  if (optionsOrPathOrStream && typeof optionsOrPathOrStream !== 'string' && !(optionsOrPathOrStream as any).write)
+  if (optionsOrPathOrStream && !isString(optionsOrPathOrStream) && !(optionsOrPathOrStream as any).write)
     delete (optionsOrPathOrStream as any).stream;
 
   let url: string;
@@ -22,19 +22,19 @@ export async function requestFile(urlOrOptions: string | ExtendedRequestOptions,
   let path: string;
   let stream: Writable;
 
-  if (typeof pathOrStream === 'string')
+  if (isString(pathOrStream))
     path = pathOrStream;
   else if (pathOrStream)
     stream = pathOrStream;
 
-  if (!path && typeof optionsOrPathOrStream === 'string')
+  if (!path && isString(optionsOrPathOrStream))
     path = optionsOrPathOrStream;
   else if (!stream && optionsOrPathOrStream && (optionsOrPathOrStream as any).write && (optionsOrPathOrStream as any).end)
     stream = optionsOrPathOrStream as Writable;
   else if (optionsOrPathOrStream)
     options = optionsOrPathOrStream as ExtendedRequestOptions;
 
-  if (typeof urlOrOptions === 'string')
+  if (isString(urlOrOptions))
     url = urlOrOptions;
   else if (!options)
     options = urlOrOptions;
@@ -88,6 +88,7 @@ export async function requestFile(urlOrOptions: string | ExtendedRequestOptions,
   const length = await request(url || options, url ? options : undefined, 'binary') as unknown as Promise<number>;
 
   if (fromCache) {
+    // eslint-disable-next-line @typescript-eslint/await-thenable,@typescript-eslint/unbound-method
     await promisify(stream.end);
     await unlink(outPath).catch(noop);
   }

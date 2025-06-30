@@ -44,7 +44,7 @@ describe('request-file', () => {
     const stats = fs.statSync(path);
     expect(stats).to.be.ok;
     await new Promise(resolve => setTimeout(resolve, 1000));
-    await expect(requestFile(`http://localhost:${port}/test9/`, {  cachePath: path }, path)).to.eventually.be.ok;
+    await expect(requestFile(`http://localhost:${port}/test9/`, { cachePath: path }, path)).to.eventually.be.ok;
     const stats2 = fs.statSync(path);
     expect(stats2.mtimeMs).to.equal(stats.mtimeMs);
 

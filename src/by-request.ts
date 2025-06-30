@@ -1,5 +1,5 @@
 /*
-  Copyright © 2019-2022 Kerry Shetline, kerry@shetline.com
+  Copyright © 2019-2025 Kerry Shetline, kerry@shetline.com
 
   MIT license: https://opensource.org/licenses/MIT
 
@@ -19,7 +19,7 @@
 import { RequestOptions } from 'http';
 import zlib from 'zlib';
 import { FollowOptions, http, https } from 'follow-redirects';
-import { parse as parseUrl } from 'url'; // eslint-disable-line node/no-deprecated-api
+import { parse as parseUrl } from 'url'; // es lint-disable-line node/no-deprecated-api
 import iconv from 'iconv-lite';
 import { getReasonPhrase, StatusCodes } from 'http-status-codes';
 import { Writable } from 'stream';
@@ -50,7 +50,7 @@ export interface ResponseInfo {
   stream?: Writable;
 }
 
-type ReqOptions = (RequestOptions & SecureContextOptions & {rejectUnauthorized?: boolean, servername?: string} & FollowOptions<RequestOptions>);
+type ReqOptions = (RequestOptions & SecureContextOptions & { rejectUnauthorized?: boolean; servername?: string } & FollowOptions<RequestOptions>);
 
 export interface ExtendedRequestOptions extends ReqOptions {
   autoDecompress?: boolean;
@@ -145,10 +145,10 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
   let encoding = anEncoding as BufferEncoding;
   let fromCache = false;
 
-  if (typeof urlOrOptions === 'string') // noinspection JSDeprecatedSymbols
+  if (isString(urlOrOptions)) // noinspection JSDeprecatedSymbols
     options = parseUrl(urlOrOptions);
 
-  if (typeof optionsOrEncoding === 'string')
+  if (isString(optionsOrEncoding))
     encoding = (optionsOrEncoding.replace('us-ascii', 'ascii')) as BufferEncoding;
   else if (optionsOrEncoding) {
     if (options)

@@ -1,8 +1,9 @@
 import { ExtendedRequestOptions, request } from './by-request';
+import { isString } from '@tubular/util';
 
-export async function requestBinary(urlOrOptions: string | ExtendedRequestOptions,
-                                    options?: ExtendedRequestOptions): Promise<Buffer> {
-  if (urlOrOptions && typeof urlOrOptions !== 'string')
+export function requestBinary(urlOrOptions: string | ExtendedRequestOptions,
+                              options?: ExtendedRequestOptions): Promise<Buffer> {
+  if (urlOrOptions && !isString(urlOrOptions))
     delete urlOrOptions.stream;
 
   if (options)

@@ -4,7 +4,7 @@ import iconv from 'iconv-lite';
 import * as zlib from 'zlib';
 import { Server } from 'http';
 import * as bodyParser from 'body-parser';
-import { isString } from '@tubular/util';
+import { toNumber, isString, sleep } from '@tubular/util';
 import { StatusCodes } from 'http-status-codes';
 
 export const TEST_TEXT_1 = 'Côte d\'Ivoire';
@@ -21,6 +21,21 @@ if (!(global as any).testServerStarted) {
   app.use(bodyParser.text());
   app.use(bodyParser.urlencoded({ extended: false }));
   app.use(compression());
+
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+  app.use('/httpstat.us', async (req: Request, res: Response) => {
+    if (req.query.sleep)
+      await sleep(toNumber(req.query.sleep));
+    if (req.url == '/200') {
+      res.status(200).send('200 OK');
+    }
+    else if (req.url == '/400') {
+      res.status(400).send('Bad Request');
+    }
+    else if (req.url == '/522') {
+      res.status(522).send('Connection Timeout');
+    }
+  });
 
   app.get('/test1', (req: Request, res: Response) => {
     res.send(TEST_TEXT_1);
@@ -73,7 +88,7 @@ if (!(global as any).testServerStarted) {
     const content = ['Very large content '];
 
     for (let i = 0; i < 100000; ++i)
-      content.push(Math.random().toFixed(3).substr(2));
+      content.push(Math.random().toFixed(3).substring(2));
 
     res.send(content.join(''));
   });

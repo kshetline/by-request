@@ -90,7 +90,7 @@ describe('request-text', () => {
     expect(bytesRead).equals(totalBytes);
     expect(bytesRead).equals(responseInfo.contentLength);
     expect(responseInfo.charset).equals('utf-8');
-    expect(responseInfo.contentEncoding).equals('gzip');
+    expect(responseInfo.contentEncoding).equals('br');
   });
 
   it('should be able to identity various UTF formats according to BOM', async () => {
@@ -160,7 +160,16 @@ describe('request-text', () => {
   it('should handle Brotli-encoded content', async function () {
     this.timeout(10000);
     this.slow(5000);
-    const content = await requestText('https://tools-7.kxcdn.com/css/style-028e36f320.css');
+    const content = await requestText({
+      protocol: 'https',
+      host: 'tools-7.kxcdn.com',
+      path: 'css/style-028e36f320.css'
+    });
     expect(content).contains('Bootstrap v4.5.0');
+  });
+
+  it('should not work with binary encoding', async () => {
+    await expect(requestText('http://localhost:8080/test9/', 'binary'))
+      .to.be.rejectedWith('Binary encoding not permitted. Please use requestBinary.');
   });
 });
