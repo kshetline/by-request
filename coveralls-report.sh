@@ -1,2 +1,2 @@
 #!/bin/bash
-# coveralls report --repo-token=$TOKEN_TB_MATH
+coveralls report --repo-token=$TOKEN_BY_REQUEST
