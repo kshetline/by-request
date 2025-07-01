@@ -3,6 +3,7 @@ import { createWriteStream, rename as _rename, unlink as _unlink } from 'fs';
 import { Writable } from 'stream';
 import { promisify } from 'util';
 import { isString, noop } from '@tubular/util';
+import { parse as parseUrl } from 'url';
 
 const unlink = promisify(_unlink);
 const rename = promisify(_rename);
@@ -42,7 +43,8 @@ export async function requestFile(urlOrOptions: string | ExtendedRequestOptions,
   if (!options)
     options = {};
 
-  const urlFile = (url || options.path || '').replace(/\/$/, '').replace(/.*\//, '');
+  const urlPath = url ? parseUrl(url).path : options.path;
+  const urlFile = (urlPath || '').replace(/\/$/, '').replace(/(?<!:).*\/+/, '');
   const pathIsDirectory = path && /\/$/.test(path);
 
   if (pathIsDirectory)

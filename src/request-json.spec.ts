@@ -30,7 +30,12 @@ describe('request-json', () => {
   );
 
   it('should throw an exception for an HTTP error', async () =>
-    requestJson(`http://localhost:${port}/doesnt_exist/`).then(() =>
+    requestJson({
+      protocol: 'http',
+      host: 'localhost',
+      port,
+      path: '/doesnt_exist/'
+    }).then(() =>
       expect(false).to.be.true('Exception for HTTP error should have been thrown.')
     ).catch(err =>
       expect(err.message).equals('Error 404: Not Found')

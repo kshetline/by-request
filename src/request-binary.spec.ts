@@ -8,7 +8,11 @@ describe('request-binary', () => {
     let content = await requestBinary(`http://localhost:${port}/test9/`);
     expect(Array.from(content)).to.deep.equal([0, 1, 2, 3]);
 
-    content = await requestBinary('https://opensource.org/licenses/MIT');
+    content = await requestBinary({
+      protocol: 'https',
+      host: 'opensource.org',
+      path: '/licenses/MIT'
+    });
     expect(content.toString('utf8')).to.contain('copies or substantial portions');
   });
 

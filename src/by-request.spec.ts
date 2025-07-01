@@ -51,6 +51,7 @@ describe('by-request', () => {
     let createdPath: string;
     content = await request({
       protocol: 'https',
+      port: 443,
       host: 'raw.githubusercontent.com',
       path: 'kshetline/sky-view-cafe-astronomy/master/src/primeng-theme-tweaks.scss',
       cachePath: 'cache',
@@ -70,7 +71,12 @@ describe('by-request', () => {
     expect(content.toString()).to.equal('77,abc,true');
 
     content = await request(`http://localhost:${port}/test13`, {
-      headers: { 'content-type': 'application/json' },
+      json: '{"do":77,"re":"abc","mi":true,"so":"ignored"}'
+    });
+    expect(content.toString()).to.equal('77,abc,true');
+
+    content = await request(`http://localhost:${port}/test13`, {
+      headers: { 'content-type': 'application/json; charset=utf-8' },
       body: '{"do":456,"re":"xyz","mi":false}'
     });
     expect(content.toString()).to.equal('456,xyz,false');

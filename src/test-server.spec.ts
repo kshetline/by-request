@@ -125,8 +125,10 @@ if (!(global as any).testServerStarted) {
       zipped = Buffer.from(data2);
     }
 
-    if (asGzip)
+    if (asGzip) {
+      res.setHeader('Content-Encoding', 'x-gzip');
       res.setHeader('Content-Type', 'application/x-gzip');
+    }
     else
       res.setHeader('Content-Encoding', 'gzip');
 
