@@ -69,6 +69,8 @@ describe('request-text', () => {
 
     content = await requestText(`http://localhost:${port}/test7/4`);
     expect(content).to.contain('A Møøse once bit my sister... No realli!');
+
+    await expect(requestText(`http://localhost:${port}/test14`)).to.be.rejectedWith('Unsupported Media Type');
   });
 
   it('should get progress reports from long streams of input', async () => {
@@ -119,6 +121,14 @@ describe('request-text', () => {
     expect(responseInfo.bomRemoved).to.be.true;
     expect(responseInfo.charset).equals('utf-16le');
 
+    content = await requestText(`http://localhost:${port}/test12a/?enc=utf16le!`, {
+      responseInfo: info => responseInfo = info
+    });
+
+    expect(content).equals(TEST_TEXT_2);
+    expect(responseInfo.bomRemoved).to.be.false;
+    expect(responseInfo.charset).equals('utf-16le');
+
     content = await requestText(`http://localhost:${port}/test12/?enc=utf16be`, {
       responseInfo: info => responseInfo = info
     });
@@ -135,12 +145,28 @@ describe('request-text', () => {
     expect(responseInfo.bomRemoved).to.be.true;
     expect(responseInfo.charset).equals('utf-32le');
 
+    content = await requestText(`http://localhost:${port}/test12a/?enc=utf32le!`, {
+      responseInfo: info => responseInfo = info
+    });
+
+    expect(content).equals(TEST_TEXT_2);
+    expect(responseInfo.bomRemoved).to.be.false;
+    expect(responseInfo.charset).equals('utf-32le');
+
     content = await requestText(`http://localhost:${port}/test12/?enc=utf32be`, {
       responseInfo: info => responseInfo = info
     });
 
     expect(content).equals(TEST_TEXT_3);
     expect(responseInfo.bomRemoved).to.be.true;
+    expect(responseInfo.charset).equals('utf-32be');
+
+    content = await requestText(`http://localhost:${port}/test12a/?enc=utf32be!`, {
+      responseInfo: info => responseInfo = info
+    });
+
+    expect(content).equals(TEST_TEXT_2);
+    expect(responseInfo.bomRemoved).to.be.false;
     expect(responseInfo.charset).equals('utf-32be');
   });
 

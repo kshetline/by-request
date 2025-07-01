@@ -1,5 +1,5 @@
 import chai, { expect } from 'chai';
-import {request, ResponseInfo} from './by-request';
+import { request, ResponseInfo } from './by-request';
 import chaiAsPromised from 'chai-as-promised';
 import { port } from './test-server.spec';
 import { stat, unlink, utimes, writeFile } from 'fs/promises';
@@ -19,6 +19,11 @@ describe('by-request', () => {
     this.slow(10000);
     await expect(request(`http://localhost:${port}/httpstat.us/200`, 'utf8')).to.eventually.match(/^(200 OK)?$/);
     await expect(request(`http://localhost:${port}/httpstat.us/400`)).to.eventually.be.rejected;
+    await expect(request(`http://localhost:${port}/httpstat.us/999`)).to.eventually.be.rejectedWith(/Unknown/);
+    await expect(request(`http://localhost:${port}/httpstat.us/200?enc=foo`))
+      .to.eventually.be.rejectedWith(/Unsupported Media Type/);
+    await expect(request(`http://localhost:${port}/httpstat.us/200?type=text%2Fplain%3B+charset%3Dfoo`))
+      .to.eventually.be.rejectedWith(/Unsupported Media Type/);
     await expect(request(`http://localhost:${port}/httpstat.us/522?sleep=6000`, { timeout: 3000 })).to.eventually.be.rejected;
   });
 
@@ -38,6 +43,16 @@ describe('by-request', () => {
 
     content = await request(url + '?rc=304', { cachePath: path });
     expect(content.toString()).to.contain('Hello');
+
+    content = await request(url, { cachePath: 'cache', body: 'foo', method: 'GET', responseInfo, params: { rc: 304 } });
+    expect(content.toString()).to.contain('Hello');
+    expect(createdPath).to.be.ok;
+    await expect(stat(path)).to.eventually.be.ok;
+
+    content = await request(url, { cachePath: 'cache', body: 'foo', method: 'GET', responseInfo });
+    expect(content.toString()).to.contain('Hello');
+    await safeDelete(createdPath);
+    createdPath = null;
 
     url = 'https://raw.githubusercontent.com/kshetline/by-request/master/LICENSE';
 

@@ -4,14 +4,18 @@ import { port } from './test-server.spec';
 import * as zlib from 'zlib';
 
 describe('request-binary', () => {
-  it('should read binary data correctly', async () => {
+  it('should read binary data correctly', async function () {
+    this.timeout(10000);
+    this.slow(5000);
+
     let content = await requestBinary(`http://localhost:${port}/test9/`);
     expect(Array.from(content)).to.deep.equal([0, 1, 2, 3]);
 
+    // Also https://en.wikipedia.org/wiki/MIT_License
     content = await requestBinary({
       protocol: 'https',
       host: 'opensource.org',
-      path: '/licenses/MIT'
+      path: '/license/MIT'
     });
     expect(content.toString('utf8')).to.contain('copies or substantial portions');
   });
@@ -45,5 +49,9 @@ describe('request-binary', () => {
     const content = await requestBinary(`http://localhost:${port}/test11/?asgzip=true`, { autoDecompress: true });
 
     expect(content.length).equals(8);
+  });
+
+  it('should fail on unknown encoding', async () => {
+    await expect(requestBinary(`http://localhost:${port}/test11/?asfoo=true`, { autoDecompress: true })).to.be.rejected;
   });
 });

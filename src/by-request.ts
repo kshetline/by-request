@@ -24,7 +24,7 @@ import iconv from 'iconv-lite';
 import { getReasonPhrase, StatusCodes } from 'http-status-codes';
 import { Writable } from 'stream';
 import { SecureContextOptions } from 'tls';
-import { clone, isString, makePlainASCII, processMillis, toNumber, urlEncodeParams } from '@tubular/util';
+import { checksum53, clone, isString, makePlainASCII, processMillis, toNumber, urlEncodeParams } from '@tubular/util';
 import fs, { StatOptions, Stats } from 'fs';
 import temp from 'temp';
 import * as pathUtil from 'path';
@@ -119,21 +119,6 @@ function makeError(err: any): Error {
   return new Error(err.toString());
 }
 
-function cyrb53(str: string, seed = 0): string {
-  let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
-
-  for (let i = 0, ch; i < str.length; i++) {
-    ch = str.charCodeAt(i);
-    h1 = Math.imul(h1 ^ ch, 2654435761);
-    h2 = Math.imul(h2 ^ ch, 1597334677);
-  }
-
-  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
-  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
-
-  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(16).toUpperCase().padStart(14, '0');
-}
-
 let checkedGzipShell = false;
 let hasGzipShell = false;
 
@@ -151,9 +136,10 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
   if (isString(optionsOrEncoding))
     encoding = (optionsOrEncoding.replace('us-ascii', 'ascii')) as BufferEncoding;
   else if (optionsOrEncoding) {
+    /* istanbul ignore else */
     if (options)
       Object.assign(options, optionsOrEncoding);
-    else /* istanbul ignore next */
+    else
       options = clone(optionsOrEncoding);
   }
   else if (!options)
@@ -220,7 +206,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
         (options.port ? ':' + options.port : '') + options.path;
       let base = '';
       let suffix = '';
-      let $ = /.+\/([^?&]+)/.exec(options.path);
+      let $ = /.*\/([^?&/]+)/.exec(options.path);
 
       if ($) {
         base = makePlainASCII($[1], true).replace(/,/g, '-').replace(/^([^a-z])/i, 'X$1');
@@ -233,7 +219,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
           base = base.substring(0, 20) + '-';
       }
 
-      cachePath = pathUtil.join(cachePath, base + cyrb53(url + (body ? body.toString() : '')) + suffix);
+      cachePath = pathUtil.join(cachePath, base + checksum53(url + (body ? body.toString() : '')) + suffix);
     }
   }
 

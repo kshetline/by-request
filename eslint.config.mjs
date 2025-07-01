@@ -48,6 +48,7 @@ export default [
         }
       ],
       '@stylistic/curly': 'off',
+      '@/eqeqeq': ['error', 'smart'],
       '@typescript-eslint/explicit-member-accessibility': [
         'error',
         {

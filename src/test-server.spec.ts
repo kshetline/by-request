@@ -10,6 +10,10 @@ import { StatusCodes } from 'http-status-codes';
 export const TEST_TEXT_1 = 'Côte d\'Ivoire';
 export const TEST_TEXT_2 = 'Hello, world! 🙂';
 export const TEST_TEXT_3 = '❝Some more text 😱 to try ☔ 샘플 텍스트❞';
+export const TEST_TEXT_4 = `<html>
+<head><meta http-equiv="Content-Type" content="text/html; charset=foo"></head>
+<body></body>
+</html>`;
 
 export const port = process.env.TEST_PORT || 3000;
 
@@ -22,18 +26,30 @@ if (!(global as any).testServerStarted) {
   app.use(bodyParser.urlencoded({ extended: false }));
   app.use(compression());
 
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+ // eslint-disable-next-line @typescript-eslint/no-misused-promises
   app.use('/httpstat.us', async (req: Request, res: Response) => {
+    const url = req.url.slice(1).replace(/\?.*$/, '');
+
     if (req.query.sleep)
       await sleep(toNumber(req.query.sleep));
-    if (req.url == '/200') {
-      res.status(200).send('200 OK');
+
+    if (req.query.type)
+      res.setHeader('Content-Type', String(req.query.type));
+
+    if (req.query.enc)
+      res.setHeader('Content-Encoding', String(req.query.enc));
+
+    if (url === '200') {
+      res.status(200).send(Buffer.from('200 OK'));
     }
-    else if (req.url == '/400') {
-      res.status(400).send('Bad Request');
+    else if (url === '400') {
+      res.status(400).send(Buffer.from('Bad Request'));
     }
-    else if (req.url == '/522') {
-      res.status(522).send('Connection Timeout');
+    else if (url === '522') {
+      res.status(522).send(Buffer.from('Connection Timeout'));
+    }
+    else if (req.url && toNumber(url) > 0) {
+      res.sendStatus(toNumber(url));
     }
   });
 
@@ -57,7 +73,7 @@ if (!(global as any).testServerStarted) {
   });
 
   app.get('/test4', (req: Request, res: Response) => {
-    const rc = toNumber(req.query.rc);
+    const rc = toNumber(req.query.rc || req.params.rc);
 
     if (rc) {
       if (rc === 304) {
@@ -126,6 +142,7 @@ if (!(global as any).testServerStarted) {
   app.get('/test11', (req: Request, res: Response) => {
     const corrupt = !!req.query.corrupt;
     const asGzip = !!req.query.asgzip;
+    const asFoo = !!req.query.asfoo;
     const data = [0, 1, 2, 3, 4, 5, 6, 7];
     const content = Buffer.from(data);
     let zipped = zlib.gzipSync(content);
@@ -140,15 +157,38 @@ if (!(global as any).testServerStarted) {
       res.setHeader('Content-Encoding', 'x-gzip');
       res.setHeader('Content-Type', 'application/x-gzip');
     }
+    else if (asFoo)
+      res.setHeader('Content-Encoding', 'foo');
     else
       res.setHeader('Content-Encoding', 'gzip');
 
     res.send(zipped);
   });
 
-  app.get('/test12', (req: Request, res: Response) => {
+  app.get('/test12a', (req: Request, res: Response) => {
+    let addBOM = true;
+    let enc = req.query.enc?.toString();
+
+    if (enc.endsWith('!')) {
+      enc = enc.slice(0, -1);
+      addBOM = false;
+    }
+
     res.setHeader('Content-Type', 'text/plain');
-    res.send(iconv.encode(TEST_TEXT_3, req.query.enc?.toString(), { addBOM: true }));
+    res.send(iconv.encode(TEST_TEXT_2, enc, { addBOM }));
+  });
+
+  app.get('/test12', (req: Request, res: Response) => {
+    let addBOM = true;
+    let enc = req.query.enc?.toString();
+
+    if (enc.endsWith('!')) {
+      enc = enc.slice(0, -1);
+      addBOM = false;
+    }
+
+    res.setHeader('Content-Type', 'text/plain');
+    res.send(iconv.encode(TEST_TEXT_3, enc, { addBOM }));
   });
 
   app.post('/test13', (req: Request, res: Response) => {
@@ -161,6 +201,10 @@ if (!(global as any).testServerStarted) {
 
     res.setHeader('Content-Type', 'text/plain');
     res.send(response);
+  });
+
+  app.get('/test14', (req: Request, res: Response) => {
+    res.send(TEST_TEXT_4);
   });
 
   let server: Server;
