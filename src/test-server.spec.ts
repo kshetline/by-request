@@ -57,6 +57,17 @@ if (!(global as any).testServerStarted) {
   });
 
   app.get('/test4', (req: Request, res: Response) => {
+    const rc = toNumber(req.query.rc);
+
+    if (rc) {
+      if (rc === 304) {
+        res.sendStatus(304);
+        return;
+      }
+
+      res.status(toNumber(req.query.rc));
+    }
+
     res.setHeader('Content-Type', 'text/plain');
     res.send(iconv.encode(TEST_TEXT_2, 'utf-16be'));
   });

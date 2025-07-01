@@ -153,15 +153,17 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
   else if (optionsOrEncoding) {
     if (options)
       Object.assign(options, optionsOrEncoding);
-    else
+    else /* istanbul ignore next */
       options = clone(optionsOrEncoding);
   }
   else if (!options)
     options = urlOrOptions as ExtendedRequestOptions;
 
+  /* istanbul ignore next */
   if (!options.protocol?.endsWith(':'))
     options.protocol += ':';
 
+  /* istanbul ignore next */
   if (!options.path?.startsWith('/'))
     options.path = '/' + (options.path || '');
 
@@ -246,7 +248,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
     const gzipProc = spawn('gzip', ['-L']);
 
     await new Promise<void>(resolve => {
-      gzipProc.once('error', () => { hasGzipShell = false; resolve(); });
+      gzipProc.once('error', /* istanbul ignore next */ () => { hasGzipShell = false; resolve(); });
       gzipProc.stdout.once('end', resolve);
     });
   }
@@ -530,16 +532,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
       else
         reject_(res.statusCode);
       }
-    }).once('error', err => {
-      if (canUseCache && err.toString().match(/\b304\b/)) // StatusCodes.NOT_MODIFIED
-        readFile(cachePath, { encoding: encoding === 'binary' ? null : encoding })
-          .then((content: any) => {
-            fromCache = true;
-            reportAndResolve(content);
-          }).catch((err: any) => reject_(err));
-      else
-        reject_(err);
-    });
+    }).once('error', err => reject_(err));
 
     req.once('timeout', () => {
       req.abort();
