@@ -30,4 +30,7 @@
       </profile-state>
     </entry>
   </component>
+  <component name="ProjectRootManager" version="2" default="true">
+    <output url="file://$PROJECT_DIR$/out" />
+  </component>
 </project>

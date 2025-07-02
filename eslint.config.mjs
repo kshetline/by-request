@@ -66,8 +66,7 @@ export default [
           ignoreComments: true,
           ignoredNodes: [
             'ClassProperty[value]',
-            'TSTypeAnnotation > TSFunctionType',
-            'NewExpression[arguments] :expression *'
+            'TSTypeAnnotation > TSFunctionType'
           ],
           ObjectExpression: 'first',
           SwitchCase: 1

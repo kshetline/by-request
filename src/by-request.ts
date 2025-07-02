@@ -267,8 +267,8 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
 
   return new Promise<string | Buffer | number>((resolve, reject) => {
     const reject_ = (err: any) => reject(makeError(err));
-    const endStream = options.streamCreated ||
-            (!options.dontEndStream && stream !== process.stdout && stream !== process.stderr);
+    const endStream = ((options.streamCreated && options.dontEndStream !== true) || !options.dontEndStream)
+                      && stream !== process.stdout && stream !== process.stderr;
     const reportAndResolve = (content: Buffer | string): void => {
       if (options.responseInfo)
         options.responseInfo({ cachePath, fromCache });
@@ -426,8 +426,8 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
             content = Buffer.concat([content, data], content.length + data.length);
         });
 
-       source.once('end', () => {
-         const wrapUp = () => {
+        source.once('end', () => {
+          const wrapUp = () => {
             if (options.progress && contentLength === undefined)
               options.progress(bytesRead, bytesRead);
 

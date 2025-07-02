@@ -18,7 +18,7 @@ module.exports = [{
     }
   ],
   plugins: [
-    typescript({ inlineSources: true }),
+    typescript({ inlineSources: true, module: 'ESNext' }),
     sourcemaps(),
     terser({ format: { max_line_len: 511 }, sourceMap: { includeSources: true } })
   ]

@@ -1,6 +1,6 @@
 {
   "name": "by-request",
-  "version": "1.4.0-alpha.0",
+  "version": "1.4.0",
   "description": "Simple Node http client for use with promises, async/await.",
   "module": "dist/index.min.mjs",
   "main": "dist/index.min.cjs",

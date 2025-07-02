@@ -1,4 +1,4 @@
-# by-request [![Build Status](https://travis-ci.com/kshetline/by-request.svg?branch=master)](https://travis-ci.com/kshetline/by-request)
+# by-request
 
 ## Simple Node HTTP/HTTPS client for use with promises and async/await
 
@@ -11,9 +11,9 @@ The **by-request** package provides four ways to retrieve data via HTTP/HTTPS, a
 
 GET and POST requests are handled, and optional automatic file caching can be used.
 
-### Installation
+[![npm](https://img.shields.io/npm/v/by-request.svg)](https://www.npmjs.com/package/by-request/) [![Coverage Status](https://coveralls.io/repos/github/kshetline/by-request/badge.svg?branch=master)](https://coveralls.io/github/kshetline/by-request) [![npm downloads](https://img.shields.io/npm/dm/by-request.svg)](https://npmjs.org/package/by-request/) ![npm bundle size (scoped)](https://img.shields.io/bundlephobia/min/by-request)  ![license](https://img.shields.io/badge/licence-mit-informational)
 
-[![NPM Stats](https://nodei.co/npm/by-request.png?downloads=true&downloadRank=true)](https://npmjs.org/packages/by-request/)
+### Installation
 
 `npm install by-request`
 
@@ -39,7 +39,7 @@ const options = {progress: (bytesRead, totalBytes) => {
     console.log((bytesRead / 1024).toFixed(1) + 'K downloaded');
 }};
 
-requestFile('https://tedious.org/2014/07/meeting_minutes.docx', options, 'documents/tldnr/').then(length => {
+requestFile('https://tedious.org/2024/07/meeting_minutes.docx', options, 'documents/tldnr/').then(length => {
   console.log('Document retrieved, length in bytes: ' + length);
 }).catch(err => {
   console.error('Something went wrong: ' + err.message);
