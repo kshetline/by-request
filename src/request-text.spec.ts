@@ -105,6 +105,13 @@ describe('request-text', () => {
     expect(responseInfo.bomRemoved).to.be.true;
     expect(responseInfo.charset).equals('utf7');
 
+    content = await requestText(`http://localhost:${port}/test12/?enc=utf7&lbb=39`, {
+      responseInfo: info => responseInfo = info
+    });
+
+    expect(content).equals(TEST_TEXT_3);
+    expect(responseInfo.charset).equals('utf7');
+
     content = await requestText(`http://localhost:${port}/test12/?enc=utf8`, {
       responseInfo: info => responseInfo = info
     });
@@ -187,8 +194,8 @@ describe('request-text', () => {
   });
 
   it('should handle Brotli-encoded content', async function () {
-    this.timeout(10000);
-    this.slow(5000);
+    this.timeout(15000);
+    this.slow(7500);
     const content = await requestText({
       protocol: 'https',
       host: 'tools-7.kxcdn.com',

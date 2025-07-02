@@ -29,11 +29,9 @@ import fs, { StatOptions, Stats } from 'fs';
 import temp from 'temp';
 import * as pathUtil from 'path';
 import { spawn } from 'child_process';
+import { lstat, mkdir, readFile, writeFile } from 'fs/promises';
 
 temp.track();
-
-// import { lstat, mkdir, readFile, writeFile } from 'fs/promises'; // Would prefer this syntax, but requires Node 14+
-const { lstat, mkdir, readFile, writeFile } = require('fs').promises;
 
 const MAX_EXAMINE = 2048;
 
@@ -93,7 +91,7 @@ async function ensureDirectory(path: string): Promise<void> {
 function getCaseInsensitiveProperty(obj: any, key: string) {
   key = key.toLowerCase();
 
-  for (const k of Object.keys(obj || {})) {
+  for (const k of Object.keys(obj || /* istanbul ignore next: unreached sanity check */ {})) {
     if (isString(k) && k.toLowerCase() === key)
       return obj[k];
   }
@@ -102,6 +100,7 @@ function getCaseInsensitiveProperty(obj: any, key: string) {
 }
 
 function makeError(err: any): Error {
+  /* istanbul ignore next: unreached sanity check */
   if (err instanceof Error)
     return err;
 
@@ -136,7 +135,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
   if (isString(optionsOrEncoding))
     encoding = (optionsOrEncoding.replace('us-ascii', 'ascii')) as BufferEncoding;
   else if (optionsOrEncoding) {
-    /* istanbul ignore else */
+    /* istanbul ignore else: unreached sanity check */
     if (options)
       Object.assign(options, optionsOrEncoding);
     else
@@ -145,11 +144,11 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
   else if (!options)
     options = urlOrOptions as ExtendedRequestOptions;
 
-  /* istanbul ignore next */
+  /* istanbul ignore next: unreached sanity check */
   if (!options.protocol?.endsWith(':'))
     options.protocol += ':';
 
-  /* istanbul ignore next */
+  /* istanbul ignore next: unreached sanity check */
   if (!options.path?.startsWith('/'))
     options.path = '/' + (options.path || '');
 
@@ -203,7 +202,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
     if (/[/\\]$/.test(cachePath) || (await safeLstat(cachePath))?.isDirectory()) {
       const url = isString(urlOrOptions) ? urlOrOptions :
         options.protocol + (options.hostname || options.host) +
-        (options.port ? ':' + options.port : '') + options.path;
+        (options.port ? ':' + options.port : /* istanbul ignore next: unreached sanity check */ '') + options.path;
       let base = '';
       let suffix = '';
       let $ = /.*\/([^?&/]+)/.exec(options.path);
@@ -234,7 +233,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
     const gzipProc = spawn('gzip', ['-L']);
 
     await new Promise<void>(resolve => {
-      gzipProc.once('error', /* istanbul ignore next */ () => { hasGzipShell = false; resolve(); });
+      gzipProc.once('error', /* istanbul ignore next: unreached sanity check */ () => { hasGzipShell = false; resolve(); });
       gzipProc.stdout.once('end', resolve);
     });
   }
@@ -259,8 +258,8 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
 
       canUseCache = true;
 
-      if (!getCaseInsensitiveProperty(options?.headers, 'If-Modified-Since'))
-        options.headers = Object.assign(options.headers ?? {}, { 'If-Modified-Since': stats.mtime.toUTCString() });
+      if (!getCaseInsensitiveProperty(options.headers, 'If-Modified-Since'))
+        options.headers = Object.assign(options.headers, { 'If-Modified-Since': stats.mtime.toUTCString() });
     }
   }
 
@@ -268,7 +267,8 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
 
   return new Promise<string | Buffer | number>((resolve, reject) => {
     const reject_ = (err: any) => reject(makeError(err));
-    const endStream = !options.dontEndStream && stream !== process.stdout && stream !== process.stderr;
+    const endStream = options.streamCreated ||
+            (!options.dontEndStream && stream !== process.stdout && stream !== process.stderr);
     const reportAndResolve = (content: Buffer | string): void => {
       if (options.responseInfo)
         options.responseInfo({ cachePath, fromCache });
@@ -276,12 +276,14 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
       resolve(content);
     };
     const req = protocol.request(options as any, res => {
+      function getHeader(hdr: string) { return (res.headers[hdr] || '').toString().toLowerCase(); }
+
       if (200 <= res.statusCode && res.statusCode < 300) {
         let source = res as any;
         let postDecompress = false;
-        const contentEncoding = (res.headers['content-encoding'] || '').toLowerCase();
-        const contentType = (res.headers['content-type'] || '').toLowerCase();
-        let contentLength = parseInt(res.headers['content-length'], 10);
+        const contentEncoding = getHeader('content-encoding');
+        const contentType = getHeader('content-type');
+        let contentLength = parseInt(getHeader('content-length'), 10);
         contentLength = (isNaN(contentLength) ? undefined : contentLength);
         const binary = (encoding === 'binary' || !!options.stream ||
           (isBinary(contentType) && (!encoding || !iconv.encodingExists(encoding))));
@@ -317,8 +319,8 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
         }
 
         if (res !== source) {
-          res.once('error', error => {
-            if (stream && (endStream || options.streamCreated))
+          res.once('error', /* istanbul ignore next: unreached sanity check */ error => {
+            if (stream && endStream)
               stream.end();
 
             reject_(error);
@@ -358,8 +360,8 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
 
         let content = Buffer.alloc(0);
 
-        source.once('error', (error: any) => {
-          if (stream && (endStream || options.streamCreated))
+        source.once('error', /* istanbul ignore next: unreached sanity check */ (error: any) => {
+          if (stream && endStream)
             stream.end();
 
           reject_(error);
@@ -378,6 +380,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
 
             if (bomCharset) {
               if (!forceEncoding) {
+                /* istanbul ignore next: unreached sanity check */
                 if (!iconv.encodingExists(bomCharset)) {
                   reject_(StatusCodes.UNSUPPORTED_MEDIA_TYPE);
                   return;
@@ -412,6 +415,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
 
           if (stream) {
             stream.write(data, error => {
+              /* istanbul ignore next: unreached sanity check */
               if (error) {
                 stream.end();
                 reject_(error);
@@ -477,11 +481,13 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
             // errors occur that can't be caught and cause the code to fail, even after successfully
             // obtaining the decompressed data. This absurd work-around solves that problem.
             temp.open('by-request-', (err, file) => {
+              /* istanbul ignore next: unreached sanity check */
               if (err)
                 reject_(err);
               else {
                 fs.write(file.fd, content, err => err && reject_(err));
                 fs.close(file.fd, err => {
+                  /* istanbul ignore next: unreached sanity check */
                   if (err)
                     reject_(err);
                   else {
@@ -506,19 +512,19 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
         });
       }
       else {
-        if (stream && (endStream || options.streamCreated))
+        if (stream && endStream)
           stream.end();
 
-      if (canUseCache && res.statusCode === StatusCodes.NOT_MODIFIED)
-        readFile(cachePath, { encoding: encoding === 'binary' ? null : encoding })
-          .then((content: any) => {
-            fromCache = true;
-            reportAndResolve(content);
-          }).catch((err: any) => reject_(err));
-      else
-        reject_(res.statusCode);
+        if (canUseCache && res.statusCode === StatusCodes.NOT_MODIFIED)
+          readFile(cachePath, { encoding: encoding === 'binary' ? null : encoding })
+            .then((content: any) => {
+              fromCache = true;
+              reportAndResolve(content);
+            }).catch(/* istanbul ignore next: unreached sanity check */ (err: any) => reject_(err));
+        else
+          reject_(res.statusCode);
       }
-    }).once('error', err => reject_(err));
+    }).once('error', /* istanbul ignore next: unreached sanity check */ err => reject_(err));
 
     req.once('timeout', () => {
       req.abort();
@@ -527,6 +533,7 @@ export async function request(urlOrOptions: string | ExtendedRequestOptions,
 
     if (body) {
       req.write(isString(body) ? Buffer.from(body, charset) : body, err => {
+        /* istanbul ignore next: unreached sanity check */
         if (err)
           reject_(err);
         else
@@ -572,8 +579,10 @@ function checkBOM(buffer: Buffer): string {
   else if (bom[0] === 0xEF && bom[1] === 0xBB && bom[2] === 0xBF)
     return 'utf8';
   else if (bom[0] === 0x2B && bom[1] === 0x2F && bom[2] === 0x76 &&
-           (bom[3] === 0x2B || bom[3] === 0x2F || bom[3] === 0x38 || bom[3] === 0x39))
+           (bom[3] === 0x2B || bom[3] === 0x2F || bom[3] === 0x38 || bom[3] === 0x39)) {
+    buffer[3] = 0x38;
     return 'utf7';
+  }
 
   return null;
 }

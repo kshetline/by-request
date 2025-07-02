@@ -4,7 +4,7 @@ import iconv from 'iconv-lite';
 import * as zlib from 'zlib';
 import { Server } from 'http';
 import * as bodyParser from 'body-parser';
-import { toNumber, isString, sleep } from '@tubular/util';
+import { toNumber, isString, sleep, toInt } from '@tubular/util';
 import { StatusCodes } from 'http-status-codes';
 
 export const TEST_TEXT_1 = 'Côte d\'Ivoire';
@@ -192,7 +192,13 @@ if (!(global as any).testServerStarted) {
     }
 
     res.setHeader('Content-Type', 'text/plain');
-    res.send(iconv.encode(TEST_TEXT_3, enc, { addBOM }));
+
+    const content = iconv.encode(TEST_TEXT_3, enc, { addBOM });
+
+    if (addBOM && req.query.lbb)
+      content[3] = toInt(req.query.lbb, 0x2B, 16);
+
+    res.send(content);
   });
 
   app.post('/test13', (req: Request, res: Response) => {

@@ -64,6 +64,8 @@ describe('request-file', () => {
     const stats2 = fs.statSync(path);
     expect(stats2.mtimeMs).to.equal(stats.mtimeMs);
     expect(gotResponse).to.be.true;
+    await expect(requestFile(`http://localhost:${port}/test9/`,
+      { cachePath: path, maxCacheAge: 10000 }, path)).to.eventually.be.ok;
 
     fs.unlinkSync(path);
   });
@@ -90,6 +92,12 @@ describe('request-file', () => {
     let stream = new BufferCollector();
 
     await wget(`http://localhost:${port}/test9/`, stream);
+    expect(Array.from(stream.buffer)).to.deep.equal([0, 1, 2, 3]);
+
+    stream = new BufferCollector();
+    await wget(`http://localhost:${port}/test9/`, { dontEndStream: true }, stream);
+    expect(stream.closed).to.be.false;
+    stream.end();
     expect(Array.from(stream.buffer)).to.deep.equal([0, 1, 2, 3]);
 
     stream = new BufferCollector();

@@ -128,6 +128,12 @@ describe('by-request', () => {
     expect(content.toString()).to.equal('456,xyz,false');
 
     content = await request(`http://localhost:${port}/test13`, {
+      headers: { 'content-type': 'application/json; charset=utf-8' },
+      body: Buffer.from('{"do":456,"re":"xyz","mi":false}')
+    });
+    expect(content.toString()).to.equal('456,xyz,false');
+
+    content = await request(`http://localhost:${port}/test13`, {
       params: 'do=55&re=a+b&mi=%3Ac'
     });
     expect(content.toString()).to.equal('55,a b,:c');
