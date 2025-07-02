@@ -1,15 +1,16 @@
 import { ExtendedRequestOptions, ResponseInfo } from './by-request';
 import { requestText } from './request-text';
+import { isString } from '@tubular/util';
 
 export async function requestJson(urlOrOptions: string | ExtendedRequestOptions,
                                   options?: ExtendedRequestOptions): Promise<any> {
-  if (urlOrOptions && typeof urlOrOptions !== 'string')
+  if (urlOrOptions && !isString(urlOrOptions))
     delete urlOrOptions.stream;
 
   if (options)
     delete options.stream;
 
-  const actualOptions = (options || (typeof urlOrOptions === 'string' ? null : urlOrOptions));
+  const actualOptions = (options || (isString(urlOrOptions) ? null : urlOrOptions));
   const savedInfoCallback = actualOptions && actualOptions.responseInfo;
   let responseInfo: ResponseInfo = null;
 
@@ -26,7 +27,7 @@ export async function requestJson(urlOrOptions: string | ExtendedRequestOptions,
       json = JSON.parse(text);
       parsed = true;
     }
-    catch (err) {}
+    catch {}
   }
 
   if (!parsed) {
@@ -43,7 +44,7 @@ export async function requestJson(urlOrOptions: string | ExtendedRequestOptions,
         json = JSON.parse(text);
         parsed = true;
       }
-      catch (err) {}
+      catch {}
     }
   }
 

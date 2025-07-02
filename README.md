@@ -1,4 +1,4 @@
-# by-request [![Build Status](https://travis-ci.com/kshetline/by-request.svg?branch=master)](https://travis-ci.com/kshetline/by-request)
+# by-request
 
 ## Simple Node HTTP/HTTPS client for use with promises and async/await
 
@@ -11,9 +11,9 @@ The **by-request** package provides four ways to retrieve data via HTTP/HTTPS, a
 
 GET and POST requests are handled, and optional automatic file caching can be used.
 
-### Installation
+[![npm](https://img.shields.io/npm/v/by-request.svg)](https://www.npmjs.com/package/by-request/) [![Coverage Status](https://coveralls.io/repos/github/kshetline/by-request/badge.svg?branch=master)](https://coveralls.io/github/kshetline/by-request) [![npm downloads](https://img.shields.io/npm/dm/by-request.svg)](https://npmjs.org/package/by-request/) ![npm bundle size (scoped)](https://img.shields.io/bundlephobia/min/by-request)  ![license](https://img.shields.io/badge/licence-mit-informational)
 
-[![NPM Stats](https://nodei.co/npm/by-request.png?downloads=true&downloadRank=true)](https://npmjs.org/packages/by-request/)
+### Installation
 
 `npm install by-request`
 
@@ -39,7 +39,7 @@ const options = {progress: (bytesRead, totalBytes) => {
     console.log((bytesRead / 1024).toFixed(1) + 'K downloaded');
 }};
 
-requestFile('https://tedious.org/2014/07/meeting_minutes.docx', options, 'documents/tldnr/').then(length => {
+requestFile('https://tedious.org/2024/07/meeting_minutes.docx', options, 'documents/tldnr/').then(length => {
   console.log('Document retrieved, length in bytes: ' + length);
 }).catch(err => {
   console.error('Something went wrong: ' + err.message);
@@ -93,7 +93,7 @@ The other options are available as follows:
 * `body`: If a `body` for a request is provided, the request will be made using the POST method, and the `body` will be sent as part of the request. The `Content-Type` header will automatically be `text/plain; charset=UTF-8` unless you provide an overriding header value.
 * `cachePath`: This is either a file path for where cached data should be stored under a specific file name for the current request, or a directory (indicated using a `'/'` at the end of the path) where cached data will be stored using auto-generated file names.
 * `dontDecompress`: For use with `requestBinary()` and `requestFile()`, set to `true` to prevent automatic decompression of `gzip`, `deflate`, or `br` data.
-* `dontEndStream`: For use with `requestFile()`, this prevents `stream.end()` from automatically being called when `requestFile()` terminates. This option applies to either a stream passed in as an argument (in lieu of a file path), or to the internally-created file output stream. If you choose not to end the internally-created stream automatically, you should also use the `responseInfo` callback so that you can access that stream to end it later. Errors will always end any internally-created stream.
+* `dontEndStream`: For use with `requestFile()`, this prevents `stream.end()` from automatically being called when `requestFile()` terminates. This option applies to either a stream passed in as an argument (in lieu of a file path), or to the internally created file output stream. If you choose not to end the internally created stream automatically, you should also use the `responseInfo` callback so that you can access that stream to end it later. Errors will always end any internally created stream.
 * `forceEncoding`: For use with `requestText()`, setting this to `true` causes the `encoding` argument passed into the function to override any encoding specified by the retrieved data itself.
 * `ignoreBom`: By default `requestJson()` and `requestText()` look to see if a UTF-7, -8, -16, or -32 BOM [(Byte Order Mark)](https://en.wikipedia.org/wiki/Byte_order_mark) is present as one way of determining content character encoding. Setting `ignoreBom` to `true` allows the BOM to be ignored.
 * `json`: Causes a POST request to be made, either using a `string` value treated as a literal JSON body, or any other type of value which will be stringified to create the POSTed `application/json; charset=UTF-8` body.
@@ -118,8 +118,8 @@ interface ResponseInfo {
 }
 ```
 
-* `bomDetected`: Whether or not a BOM was detected.
-* `bomRemoved`: Whether or not a BOM was removed.
+* `bomDetected`: Whether a BOM was detected.
+* `bomRemoved`: Whether a BOM was removed.
 * `callback`: If JSONP data has been retrieved, this is the name of the callback function.
 * `cachePath`: If the `cachePath` option is used in your request, this will contain the name of the file where data has been cached. If the cache was used rather than making a fresh HTTP/HTTPS request, this value and `fromCache` will be the only feedback received.
 * `charset`: The character encoding ultimately used to interpret text or JSON data. This will be `'binary'` for binary and file operations.
@@ -127,7 +127,7 @@ interface ResponseInfo {
 * `contentLength`: The total number of bytes read. For compressed data, this is the compressed length, not the expanded length.
 * `contentType`: The value of the HTTP `Content-Type` header.
 * `fromCache`: `true` if content was retrieved from cache.
-* `stream`: When using `requestFile()`, this is either the stream that was passed into the function, or the stream that was created for the file path.
+* `stream`: When using `requestFile()`, this is either the stream passed into the function, or the stream created for the file path.
 
 Note: If you provide your own `Content-Type` header, only the `body` option is valid for POSTed content (`json` and `params` options will be ignored), and you are responsible for correctly encoding the provided `body`. All requests without using the `body`, `json`, or `params` options use the GET method, rather than POST.
 
@@ -152,7 +152,7 @@ async function requestFile(urlOrOptions: string | ExtendedRequestOptions,
 
 Retrieves an HTTP(S) resource to save as a file, or to send to a `Writable` output stream. Apart from decompression (which can be optionally disabled), data is retrieved as sent, with no character encoding transformations performed. The function returns the length of the file.
 
-If a path string is specified that does not end in a slash (`/`), that path is used as the complete file path for saving the retrieved data. If it does end in a slash, it is treated as a directory, and the complete file path is formed by extracting a file name from the end of the URL of the resource.
+If a path string is specified that does not end in a slash (`/`), that path is used as the complete file path for saving the retrieved data. If it does end in a slash, it is treated as a directory, and the complete file path is formed by extracting a file name from the end of the URL for the resource.
 
 If no path (or `Writable` stream) is specified, only a URL, the file name is extracted from the end of the URL, and the file is created in the current working directory.
 
@@ -181,10 +181,10 @@ async function requestText(urlOrOptions: string | ExtendedRequestOptions,
 Gets text data and returns it as a string. The character encoding scheme used to decode the text is applied according to the following order of priority:
 
 1. The `encoding` parameter (or `optionsOrEncoding` parameter, as a string value) when the `forceEncoding` option is `true`. This will override any declared encoding based on a BOM, HTTP headers, or text content.
-1. The encoding expressed via a BOM, if present, and if not ignored via the `ignoreBom` option.
-1. The `charset` value, if provided, in the HTTP `Content-Type` header.
-1. The UTF-16 or UTF-32 encoding implied by the pattern of zero and non-zero values in the first four bytes of the HTTP(S) content.
-1. Any content-specified encoding that can be seen by looking within the first 2K of data, interpreting that data as if it were ASCII, and finding declarations such as these:
+2. The encoding expressed via a BOM, if present, and if not ignored via the `ignoreBom` option.
+3. The `charset` value, if provided, in the HTTP `Content-Type` header.
+4. The UTF-16 or UTF-32 encoding implied by the pattern of zero and non-zero values in the first four bytes of the HTTP(S) content.
+5. Any content-specified encoding that can be seen by looking within the first 2K of data, interpreting that data as if it were ASCII, and finding declarations such as these:
 
     `<?xml version="1.0" encoding="iso-8859-1"?>`
 
@@ -194,8 +194,8 @@ Gets text data and returns it as a string. The character encoding scheme used to
 
     `@charset "iso-8859-1"`
 
-1. The `encoding` parameter (or `optionsOrEncoding` parameter, as a string value) when the `forceEncoding` option is `false` (or not specified).
-1. UTF-8.
+6. The `encoding` parameter (or `optionsOrEncoding` parameter, as a string value) when the `forceEncoding` option is `false` (or not specified).
+7. UTF-8.
 
 ### Error handling
 

@@ -69,6 +69,8 @@ describe('request-text', () => {
 
     content = await requestText(`http://localhost:${port}/test7/4`);
     expect(content).to.contain('A Møøse once bit my sister... No realli!');
+
+    await expect(requestText(`http://localhost:${port}/test14`)).to.be.rejectedWith('Unsupported Media Type');
   });
 
   it('should get progress reports from long streams of input', async () => {
@@ -90,7 +92,7 @@ describe('request-text', () => {
     expect(bytesRead).equals(totalBytes);
     expect(bytesRead).equals(responseInfo.contentLength);
     expect(responseInfo.charset).equals('utf-8');
-    expect(responseInfo.contentEncoding).equals('gzip');
+    expect(responseInfo.contentEncoding).equals('br');
   });
 
   it('should be able to identity various UTF formats according to BOM', async () => {
@@ -101,6 +103,13 @@ describe('request-text', () => {
 
     expect(content).equals(TEST_TEXT_3);
     expect(responseInfo.bomRemoved).to.be.true;
+    expect(responseInfo.charset).equals('utf7');
+
+    content = await requestText(`http://localhost:${port}/test12/?enc=utf7&lbb=39`, {
+      responseInfo: info => responseInfo = info
+    });
+
+    expect(content).equals(TEST_TEXT_3);
     expect(responseInfo.charset).equals('utf7');
 
     content = await requestText(`http://localhost:${port}/test12/?enc=utf8`, {
@@ -119,6 +128,14 @@ describe('request-text', () => {
     expect(responseInfo.bomRemoved).to.be.true;
     expect(responseInfo.charset).equals('utf-16le');
 
+    content = await requestText(`http://localhost:${port}/test12a/?enc=utf16le!`, {
+      responseInfo: info => responseInfo = info
+    });
+
+    expect(content).equals(TEST_TEXT_2);
+    expect(responseInfo.bomRemoved).to.be.false;
+    expect(responseInfo.charset).equals('utf-16le');
+
     content = await requestText(`http://localhost:${port}/test12/?enc=utf16be`, {
       responseInfo: info => responseInfo = info
     });
@@ -135,6 +152,14 @@ describe('request-text', () => {
     expect(responseInfo.bomRemoved).to.be.true;
     expect(responseInfo.charset).equals('utf-32le');
 
+    content = await requestText(`http://localhost:${port}/test12a/?enc=utf32le!`, {
+      responseInfo: info => responseInfo = info
+    });
+
+    expect(content).equals(TEST_TEXT_2);
+    expect(responseInfo.bomRemoved).to.be.false;
+    expect(responseInfo.charset).equals('utf-32le');
+
     content = await requestText(`http://localhost:${port}/test12/?enc=utf32be`, {
       responseInfo: info => responseInfo = info
     });
@@ -142,12 +167,23 @@ describe('request-text', () => {
     expect(content).equals(TEST_TEXT_3);
     expect(responseInfo.bomRemoved).to.be.true;
     expect(responseInfo.charset).equals('utf-32be');
+
+    content = await requestText(`http://localhost:${port}/test12a/?enc=utf32be!`, {
+      responseInfo: info => responseInfo = info
+    });
+
+    expect(content).equals(TEST_TEXT_2);
+    expect(responseInfo.bomRemoved).to.be.false;
+    expect(responseInfo.charset).equals('utf-32be');
+
+    content = await requestText(`http://localhost:${port}/test15`);
+    expect(content).equals('\n');
   });
 
   it('should handle timeout correctly', async function () {
     this.timeout(15000);
     this.slow(10000);
-    await expect(requestText('http://httpstat.us/522?sleep=6000', { timeout: 3000 })).to.eventually.be.rejected;
+    await expect(requestText(`http://localhost:${port}/httpstat.us/522?sleep=6000`, { timeout: 3000 })).to.eventually.be.rejected;
   });
 
   it('should handle deflate-encoded content', async function () {
@@ -158,9 +194,18 @@ describe('request-text', () => {
   });
 
   it('should handle Brotli-encoded content', async function () {
-    this.timeout(10000);
-    this.slow(5000);
-    const content = await requestText('https://tools-7.kxcdn.com/css/style-028e36f320.css');
+    this.timeout(15000);
+    this.slow(7500);
+    const content = await requestText({
+      protocol: 'https',
+      host: 'tools-7.kxcdn.com',
+      path: 'css/style-028e36f320.css'
+    });
     expect(content).contains('Bootstrap v4.5.0');
+  });
+
+  it('should not work with binary encoding', async () => {
+    await expect(requestText('http://localhost:8080/test9/', 'binary'))
+      .to.be.rejectedWith('Binary encoding not permitted. Please use requestBinary.');
   });
 });

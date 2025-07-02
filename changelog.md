@@ -1,10 +1,33 @@
 # Change Log
 
+## 1.4.0
+
+* Minimized code in ESM and CommonJS formats.
+* Full test coverage.
+
+## 1.3.4
+
+* Fix possible crash in protocol check.
+* Fix unit test broken by missing URL target.
+
+## 1.3.3
+
+* Move @types/follow-redirects to dependencies from devDependencies.
+
+## 1.3.2
+
+* Allow `requestFile()` (a.k.a. `wget`) to use the same path for both cache file and output file.
+* Fix reporting of `fromCache` in `ResponseInfo`.
+
+## 1.3.1
+
+* `follow-redirects` security update.
+
 ## 1.3.0
 
 * Added POST request handling.
 * Added optional file caching.
-* Improved handling of possibly-noncompliant gzip data streams that cause zlib to fail.
+* Improved handling of possibly noncompliant gzip data streams that cause zlib to fail.
 
 ## 1.2.5
 
