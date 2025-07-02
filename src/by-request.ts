@@ -601,13 +601,8 @@ function lookForEmbeddedEncoding(buffer: Buffer): string {
   for (const tag of tags) {
     if (/^<\?xml\b/.test(tag) && ($ = /\bencoding\s*=\s*['"]\s*([\w-]+)\b/.exec(tag)))
       return $[1];
-    else if (/^<meta\b/.test(tag)) {
-      if (($ = /\bcharset\s*=\s*['"]?\s*([\w-]+)\b/.exec(tag)))
-        return $[1];
-      else if (/\bhttp-equiv\s*=\s*['"]?\s*content-type\b/.test(tag) &&
-        ($ = /\bcontent\s*=\s*['"]?.*;\s*charset\s*=\s*([\w-]+)\b/.exec(tag)))
-        return $[1];
-    }
+    else if (/^<meta\b/.test(tag) && ($ = /\bcharset\s*=\s*['"]?\s*([\w-]+)\b/.exec(tag)))
+      return $[1];
   }
 
   // CSS charset must come right at the beginning of a file, so no need to worry about comments confusing the issue.

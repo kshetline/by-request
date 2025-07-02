@@ -168,6 +168,9 @@ describe('request-text', () => {
     expect(content).equals(TEST_TEXT_2);
     expect(responseInfo.bomRemoved).to.be.false;
     expect(responseInfo.charset).equals('utf-32be');
+
+    content = await requestText(`http://localhost:${port}/test15`);
+    expect(content).equals('\n');
   });
 
   it('should handle timeout correctly', async function () {

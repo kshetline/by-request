@@ -24,6 +24,11 @@ describe('request-file', () => {
     this.retries(3);
     const path = 'cache/test9';
 
+    try {
+      fs.mkdirSync('cache');
+    }
+    catch {}
+
     await wget({
       protocol: 'http',
       host: 'localhost',

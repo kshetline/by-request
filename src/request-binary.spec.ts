@@ -1,14 +1,31 @@
 import { expect } from 'chai';
 import { requestBinary } from './request-binary';
+import { request, ResponseInfo } from './by-request';
 import { port } from './test-server.spec';
 import * as zlib from 'zlib';
+import { mkdir, rm, unlink } from 'fs/promises';
+
+async function safeDelete(path: string): Promise<void> {
+  try {
+    await unlink(path);
+  }
+  catch {}
+}
 
 describe('request-binary', () => {
+  after(async () => {
+    try {
+      await rm('cache', { recursive: true, force: true });
+      await mkdir('cache');
+    }
+    catch {}
+  });
+
   it('should read binary data correctly', async function () {
     this.timeout(10000);
     this.slow(5000);
 
-    let content = await requestBinary(`http://localhost:${port}/test9/`);
+    let content = await request(`http://localhost:${port}/test9/?type=image%2Fpng`, null, 'foo') as Buffer;
     expect(Array.from(content)).to.deep.equal([0, 1, 2, 3]);
 
     // Also https://en.wikipedia.org/wiki/MIT_License
@@ -53,5 +70,25 @@ describe('request-binary', () => {
 
   it('should fail on unknown encoding', async () => {
     await expect(requestBinary(`http://localhost:${port}/test11/?asfoo=true`, { autoDecompress: true })).to.be.rejected;
+  });
+
+  it('should use cache correctly', async function () {
+    this.timeout(15000);
+    this.slow(10000);
+
+    let url = `http://localhost:${port}/test9/`;
+    let createdPath: string;
+    let bytes: number;
+    const responseInfo = (info: ResponseInfo) => createdPath = info.cachePath;
+    const progress = (_read: number, total: number) => bytes = total;
+
+    let content = await requestBinary(url, { cachePath: 'cache', responseInfo, progress });
+    expect(Array.from(content)).to.deep.equal([0, 1, 2, 3]);
+    expect(createdPath).to.be.ok;
+
+    content = await requestBinary(url, { cachePath: 'cache', responseInfo, progress });
+    expect(Array.from(content)).to.deep.equal([0, 1, 2, 3]);
+    expect(bytes).to.equal(4);
+    await safeDelete(createdPath);
   });
 });

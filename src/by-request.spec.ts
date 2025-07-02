@@ -2,7 +2,7 @@ import chai, { expect } from 'chai';
 import { request, ResponseInfo } from './by-request';
 import chaiAsPromised from 'chai-as-promised';
 import { port } from './test-server.spec';
-import { stat, unlink, utimes, writeFile } from 'fs/promises';
+import { mkdir, rm, stat, unlink, utimes, writeFile } from 'fs/promises';
 
 chai.use(chaiAsPromised);
 
@@ -14,6 +14,14 @@ async function safeDelete(path: string): Promise<void> {
 }
 
 describe('by-request', () => {
+  after(async () => {
+    try {
+      await rm('cache', { recursive: true, force: true });
+      await mkdir('cache');
+    }
+    catch {}
+  });
+
   it('should handle HTTP errors correctly', async function () {
     this.timeout(15000);
     this.slow(10000);

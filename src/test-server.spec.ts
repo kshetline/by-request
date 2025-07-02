@@ -124,7 +124,11 @@ if (!(global as any).testServerStarted) {
     if (req.headers['if-modified-since'])
       res.status(StatusCodes.NOT_MODIFIED).send('304');
     else {
-      res.setHeader('Content-Type', 'application/octet-stream');
+      if (req.query.type)
+        res.setHeader('Content-Type', String(req.query.type));
+      else
+        res.setHeader('Content-Type', 'application/octet-stream');
+
       res.send(Buffer.from([0, 1, 2, 3]));
     }
   });
@@ -205,6 +209,10 @@ if (!(global as any).testServerStarted) {
 
   app.get('/test14', (req: Request, res: Response) => {
     res.send(TEST_TEXT_4);
+  });
+
+  app.get('/test15', (req: Request, res: Response) => {
+    res.send(Buffer.from([10]));
   });
 
   let server: Server;
