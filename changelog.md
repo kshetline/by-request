@@ -1,5 +1,10 @@
 # Change Log
 
+## 1.4.0
+
+* Minimized code in ESM and CommonJS formats.
+* Full test coverage.
+
 ## 1.3.4
 
 * Fix possible crash in protocol check.
