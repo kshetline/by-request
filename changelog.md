@@ -1,5 +1,9 @@
 # Change Log
 
+## 1.4.1
+
+* Add exports/types to package.json.
+
 ## 1.4.0
 
 * Minimized code in ESM and CommonJS formats.
